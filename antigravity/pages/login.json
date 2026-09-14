@@ -1,9 +1,9 @@
 {
   "$schema": "https://antigravity.dev/schemas/page.json",
-  "id": "page-login",
-  "name": "Login",
+  "id": "page-login-supabase",
+  "name": "Login Supabase",
   "route": "/login",
-  "title": "Iniciar Sesión - Destino Vivo",
+  "title": "Iniciar Sesión - Destino Vivo RMS",
   "layout": "auth-centered",
   "components": [
     {
@@ -11,31 +11,94 @@
       "type": "Card",
       "props": {
         "title": "Destino Vivo RMS",
-        "subtitle": "Gestión inteligente de ingresos para hoteles en LatAm",
-        "align": "center",
-        "maxWidth": "420px"
+        "subtitle": "Ingresa tus credenciales para acceder al sistema",
+        "maxWidth": "440px",
+        "align": "center"
       },
       "children": [
         {
-          "id": "btn-google-oauth",
-          "type": "Button",
+          "id": "form-login",
+          "type": "Form",
           "props": {
-            "label": "Continuar con Google",
-            "icon": "google",
-            "variant": "outline",
-            "fullWidth": true,
-            "action": "oauth_login",
-            "provider": "google",
-            "scopes": ["email", "profile"],
-            "onSuccess": {
-              "type": "navigate",
-              "target": "/dashboard"
-            },
-            "onFailure": {
-              "type": "show_toast",
-              "message": "Error al autenticar con Google OAuth"
+            "onSubmit": {
+              "action": "http_post",
+              "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/auth/v1/token?grant_type=password",
+              "headers": {
+                "apikey": "YOUR_SUPABASE_ANON_KEY",
+                "Content-Type": "application/json"
+              },
+              "body": {
+                "email": "$form.email",
+                "password": "$form.password"
+              },
+              "onSuccess": [
+                {
+                  "type": "store_token",
+                  "key": "sb-access-token",
+                  "value": "$response.access_token"
+                },
+                {
+                  "type": "navigate",
+                  "target": "/dashboard"
+                }
+              ],
+              "onFailure": {
+                "type": "show_alert",
+                "severity": "error",
+                "message": "$response.error_description || 'Email o contraseña incorrectos'"
+              }
             }
-          }
+          },
+          "children": [
+            {
+              "id": "input-email",
+              "type": "TextInput",
+              "props": {
+                "name": "email",
+                "label": "Correo Electrónico",
+                "placeholder": "gerente@hotel.com",
+                "inputType": "email",
+                "required": true,
+                "validation": {
+                  "pattern": "^[^@]+@[^@]+\\.[^@]+$",
+                  "message": "Por favor ingresa un correo electrónico válido"
+                }
+              }
+            },
+            {
+              "id": "input-password",
+              "type": "PasswordInput",
+              "props": {
+                "name": "password",
+                "label": "Contraseña",
+                "placeholder": "••••••••",
+                "required": true,
+                "validation": {
+                  "minLength": 8,
+                  "message": "La contraseña debe tener al menos 8 caracteres"
+                }
+              }
+            },
+            {
+              "id": "btn-submit-login",
+              "type": "Button",
+              "props": {
+                "label": "Iniciar Sesión",
+                "variant": "primary",
+                "fullWidth": true,
+                "type": "submit"
+              }
+            },
+            {
+              "id": "link-register",
+              "type": "Link",
+              "props": {
+                "text": "¿No tienes cuenta? Crear cuenta",
+                "target": "/register",
+                "align": "center"
+              }
+            }
+          ]
         }
       ]
     }
