@@ -1,19 +1,31 @@
 {
   "$schema": "https://antigravity.dev/schemas/page.json",
-  "id": "page-settings",
+  "id": "page-settings-advanced",
   "name": "Settings",
   "route": "/settings",
-  "title": "Configuración del Hotel & Reglas",
+  "title": "Configuración del Hotel & Integraciones - Destino Vivo RMS",
   "layout": "app-sidebar",
   "dataQueries": [
     {
-      "id": "query-hotel-settings",
+      "id": "query-hotel-details",
       "endpoint": "Supabase REST API",
       "method": "GET",
       "path": "/hotels",
       "params": {
-        "select": "hotel_id,name,country,city,currency,total_rooms,base_rate,min_rate,max_rate",
+        "select": "hotel_id,name,country,city,currency,total_rooms,base_rate,min_rate,max_rate,subscription_tier",
         "limit": "1"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    },
+    {
+      "id": "query-api-keys",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/api_keys",
+      "params": {
+        "select": "key_id,label,is_active,created_at"
       },
       "headers": {
         "Authorization": "Bearer $session.sb-access-token"
@@ -22,40 +34,148 @@
   ],
   "components": [
     {
-      "id": "settings-header",
+      "id": "settings-header-main",
       "type": "HeaderBar",
       "props": {
-        "title": "Configuración del Hotel",
-        "subtitle": "Ajusta tarifas base, límites y configuración de notificaciones"
+        "title": "Configuración del Establecimiento",
+        "subtitle": "Parámetros de tarifa, umbrales de alerta y llaves de integración API"
       }
     },
     {
-      "id": "form-hotel-settings",
-      "type": "Form",
-      "props": {
-        "initialValues": "$queries.query-hotel-settings.data[0]",
-        "onSubmit": {
-          "action": "http_patch",
-          "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/hotels?hotel_id=eq.$form.hotel_id",
-          "body": {
-            "name": "$form.name",
-            "base_rate": "$form.base_rate",
-            "min_rate": "$form.min_rate",
-            "max_rate": "$form.max_rate"
+      "id": "sec-hotel-info",
+      "type": "CardSection",
+      "props": { "title": "🏢 SECTION 1: Hotel Info (Sólo Lectura)" },
+      "children": [
+        {
+          "id": "grid-hotel-info",
+          "type": "Grid",
+          "props": { "columns": 4, "gap": "16px" },
+          "children": [
+            { "id": "info-name", "type": "ReadOnlyField", "props": { "label": "Nombre del Hotel", "value": "{{ $queries.query-hotel-details.data[0].name }}" } },
+            { "id": "info-location", "type": "ReadOnlyField", "props": { "label": "Ciudad / País", "value": "{{ $queries.query-hotel-details.data[0].city }}, {{ $queries.query-hotel-details.data[0].country }}" } },
+            { "id": "info-rooms", "type": "ReadOnlyField", "props": { "label": "Total Habitaciones", "value": "{{ $queries.query-hotel-details.data[0].total_rooms }}" } },
+            { "id": "info-tier", "type": "ReadOnlyField", "props": { "label": "Plan / Suscripción", "value": "{{ $queries.query-hotel-details.data[0].subscription_tier || 'Fase 0 MVP (Developer)' }}", "badge": "PRO" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sec-pricing-config",
+      "type": "CardSection",
+      "props": { "title": "💰 SECTION 2: Pricing Config (Editable)" },
+      "children": [
+        {
+          "id": "form-pricing-config",
+          "type": "Form",
+          "props": {
+            "initialValues": "$queries.query-hotel-details.data[0]",
+            "validationRules": [
+              {
+                "expression": "$form.min_rate < $form.max_rate",
+                "message": "La tarifa mínima debe ser estrictamente menor que la tarifa máxima"
+              }
+            ],
+            "onSubmit": {
+              "action": "http_patch",
+              "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/hotels?hotel_id=eq.$queries.query-hotel-details.data[0].hotel_id",
+              "headers": {
+                "apikey": "YOUR_SUPABASE_ANON_KEY",
+                "Authorization": "Bearer $session.sb-access-token",
+                "Content-Type": "application/json"
+              },
+              "body": {
+                "base_rate": "$form.base_rate",
+                "min_rate": "$form.min_rate",
+                "max_rate": "$form.max_rate"
+              },
+              "onSuccess": {
+                "type": "show_toast",
+                "severity": "success",
+                "message": "Configuración de precios actualizada con éxito"
+              },
+              "onFailure": {
+                "type": "show_toast",
+                "severity": "error",
+                "message": "Error al actualizar configuración en Supabase"
+              }
+            }
           },
-          "onSuccess": {
-            "type": "show_toast",
-            "severity": "success",
-            "message": "Configuración actualizada correctamente"
+          "children": [
+            {
+              "id": "grid-pricing-inputs",
+              "type": "Grid",
+              "props": { "columns": 3, "gap": "16px" },
+              "children": [
+                { "id": "input-base-rate", "type": "NumberInput", "props": { "name": "base_rate", "label": "Tarifa Base ($ USD)", "required": true } },
+                { "id": "input-min-rate", "type": "NumberInput", "props": { "name": "min_rate", "label": "Tarifa Mínima ($ USD)", "required": true } },
+                { "id": "input-max-rate", "type": "NumberInput", "props": { "name": "max_rate", "label": "Tarifa Máxima ($ USD)", "required": true } }
+              ]
+            },
+            { "id": "btn-save-pricing", "type": "Button", "props": { "label": "Guardar Configuración de Precios", "type": "submit", "variant": "primary" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sec-alert-thresholds",
+      "type": "CardSection",
+      "props": { "title": "🔔 SECTION 3: Alert Thresholds (Editable)" },
+      "children": [
+        {
+          "id": "form-alert-thresholds",
+          "type": "Form",
+          "children": [
+            {
+              "id": "grid-threshold-inputs",
+              "type": "Grid",
+              "props": { "columns": 2, "gap": "16px" },
+              "children": [
+                { "id": "input-low-occ", "type": "NumberInput", "props": { "name": "low_occupancy_pct", "label": "Umbral Baja Ocupación (%)", "defaultValue": 30 } },
+                { "id": "input-high-var", "type": "NumberInput", "props": { "name": "high_variance_pct", "label": "Umbral Alta Variación (%)", "defaultValue": 20 } }
+              ]
+            },
+            {
+              "id": "checkbox-channels",
+              "type": "CheckboxGroup",
+              "props": {
+                "label": "Canales de Notificación Habilitados",
+                "options": [
+                  { "label": "Gmail / Email Notifications", "value": "email", "checked": true },
+                  { "label": "SMS Alerts", "value": "sms", "checked": false },
+                  { "label": "Dashboard Banners", "value": "dashboard", "checked": true }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sec-api-keys",
+      "type": "CardSection",
+      "props": { "title": "🔑 SECTION 4: API Keys & Connectors" },
+      "children": [
+        {
+          "id": "grid-api-keys-inputs",
+          "type": "Grid",
+          "props": { "columns": 2, "gap": "16px" },
+          "children": [
+            { "id": "key-booking", "type": "MaskedInput", "props": { "name": "booking_api_key", "label": "Booking.com API Key", "placeholder": "bk_live_••••••••••••" } },
+            { "id": "key-weather", "type": "MaskedInput", "props": { "name": "openweather_api_key", "label": "OpenWeather API Key", "placeholder": "ow_live_••••••••••••" } }
+          ]
+        },
+        {
+          "id": "btn-test-connection",
+          "type": "Button",
+          "props": {
+            "label": "Test Connection (Probar Conexión)",
+            "variant": "outline",
+            "icon": "sync",
+            "action": "http_get",
+            "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/api_keys?select=key_id,label",
+            "onSuccess": { "type": "show_toast", "severity": "success", "message": "Conexión a API PMS verificada exitosamente" }
           }
         }
-      },
-      "children": [
-        { "id": "set-name", "type": "TextInput", "props": { "name": "name", "label": "Nombre del Hotel", "required": true } },
-        { "id": "set-base-rate", "type": "NumberInput", "props": { "name": "base_rate", "label": "Tarifa Base ($ USD)", "required": true } },
-        { "id": "set-min-rate", "type": "NumberInput", "props": { "name": "min_rate", "label": "Tarifa Mínima Permitida ($ USD)", "required": true } },
-        { "id": "set-max-rate", "type": "NumberInput", "props": { "name": "max_rate", "label": "Tarifa Máxima Permitida ($ USD)", "required": true } },
-        { "id": "btn-save-settings", "type": "Button", "props": { "label": "Guardar Cambios", "type": "submit", "variant": "primary" } }
       ]
     }
   ]
