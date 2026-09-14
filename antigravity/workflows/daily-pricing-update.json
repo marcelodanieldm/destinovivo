@@ -1,0 +1,61 @@
+{
+  "$schema": "https://antigravity.dev/schemas/workflow.json",
+  "id": "workflow-daily-pricing-update",
+  "name": "Daily Pricing Update",
+  "description": "Recálculo nocturno de tarifas recomendadas utilizando Data Store nativo y expresiones JS internas",
+  "active": true,
+  "nodes": [
+    {
+      "id": "trigger-cron",
+      "name": "Cron Trigger (02:00 AM)",
+      "type": "CronTrigger",
+      "config": {
+        "cronExpression": "0 2 * * *",
+        "timezone": "America/Buenos_Aires"
+      }
+    },
+    {
+      "id": "query-hotels",
+      "name": "Fetch Active Hotels",
+      "type": "DataStoreQuery",
+      "config": {
+        "table": "Hotels",
+        "filter": {
+          "field": "status",
+          "operator": "EQUALS",
+          "value": "ACTIVE"
+        }
+      }
+    },
+    {
+      "id": "query-rules",
+      "name": "Fetch Active Rules",
+      "type": "DataStoreQuery",
+      "config": {
+        "table": "Pricing_Rules",
+        "filter": {
+          "field": "is_active",
+          "operator": "EQUALS",
+          "value": true
+        }
+      }
+    },
+    {
+      "id": "code-pricing-logic",
+      "name": "Execute JS Pricing Engine",
+      "type": "JavaScriptCode",
+      "config": {
+        "code": "const hotels = $steps['query-hotels'].data;\nconst rules = $steps['query-rules'].data;\nconst results = [];\n\nfor (const hotel of hotels) {\n  let rate = hotel.base_rate;\n  const hotelRules = rules.filter(r => r.hotel_id === hotel.hotel_id);\n  \n  for (const rule of hotelRules) {\n    if (rule.rule_type === 'OCCUPANCY_SURGE') {\n      rate += (rule.adjustment_type === 'PERCENTAGE') \n        ? (rate * (rule.adjustment_value / 100)) \n        : rule.adjustment_value;\n    }\n  }\n  \n  // Aplicar límites min y max\n  const finalRate = Math.min(Math.max(rate, hotel.min_rate), hotel.max_rate);\n  \n  results.push({\n    history_id: 'HIS-' + Date.now() + '-' + hotel.hotel_id,\n    hotel_id: hotel.hotel_id,\n    target_date: new Date().toISOString().split('T')[0],\n    recommended_rate: finalRate,\n    applied_rate: finalRate,\n    occupancy_pct: 85.0,\n    calculated_at: new Date().toISOString()\n  });\n}\n\nreturn results;"
+      }
+    },
+    {
+      "id": "save-history",
+      "name": "Save to Price_History",
+      "type": "DataStoreInsertBulk",
+      "config": {
+        "table": "Price_History",
+        "records": "$steps['code-pricing-logic'].output"
+      }
+    }
+  ]
+}
