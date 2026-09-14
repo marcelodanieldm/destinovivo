@@ -1,7 +1,7 @@
-# 🚀 Guía de Configuración Completa de Antigravity DESDE CERO
+# 🚀 Guía de Configuración Completa de Antigravity DESDE CERO (Sin Docker)
 ## System: Destino Vivo Hotel Revenue Management System (RMS)
 
-Este documento es una guía paso a paso lista para uso en producción. Diseñada para que un ingeniero pueda desplegar, configurar y verificar Antigravity como orquestador del RMS en menos de 4 horas.
+Este documento es una guía paso a paso lista para uso en producción. Diseñada para que un ingeniero pueda desplegar, configurar y verificar Antigravity como orquestador del RMS **sin requerir Docker ni virtualización**.
 
 ---
 
@@ -19,7 +19,7 @@ Este documento es una guía paso a paso lista para uso en producción. Diseñada
 2. Completa los campos:
    - **Project Name:** `destino-vivo-rms-mvp`
    - **Environment:** `production`
-   - **Region:** `us-central1` (o la región más cercana a tus hoteles en LatAm).
+   - **Region:** `us-central1`
 
 ### 1.3 Conectar VCS (GitHub Integration)
 1. Ve a **Project Settings > Integrations > Version Control**.
@@ -78,7 +78,7 @@ Crea el archivo [`antigravity/workflows/hello-rms.json`](file:///c:/Users/danie/
 ### Pasos para Ejecutar y Verificar:
 1. En la consola de Antigravity, ve a **Workflows > hello_rms**.
 2. Haz clic en **`Trigger DAG / Run Now`**.
-3. Revisa la pestaña **Execution Log**:
+3. En la pestaña **Execution Log**, confirma la salida:
    ```text
    [INFO] [task-init-print] Starting task execution...
    [LOG]  RMS initialized successfully for Destino Vivo LatAm!
@@ -103,10 +103,6 @@ En **Cluster Settings > Auto-scaling**:
 - **Max Workers:** `3` (Escalado automático si la cola supera los 20 trabajos pendientes).
 - **Scale-Up Threshold:** CPU > 70% durante 2 minutos.
 
-### 3.3 Cost Optimization
-- **Idle Timeout:** Apagar workers secundarios después de 5 minutos de inactividad.
-- **Costo estimado mensual:** **$0.00 USD** (Dentro de la capa gratuita de Antigravity).
-
 ---
 
 ## 4. INTEGRACIÓN CON SUPABASE
@@ -122,67 +118,44 @@ En Antigravity **Data Sources > Add New > HTTP REST (Supabase)**:
   Content-Type: application/json
   ```
 
-### 4.2 Verificación de Conectividad desde el DAG
-Ejecuta el siguiente snippet cURL o test HTTP en Antigravity:
-
-```bash
-curl -i -X GET "https://[YOUR_PROJECT_ID].supabase.co/rest/v1/hotels?select=count" \
-  -H "apikey: [YOUR_SUPABASE_ANON_KEY]" \
-  -H "Authorization: Bearer [YOUR_SUPABASE_SERVICE_ROLE_KEY]"
-```
-*Respuesta esperada:* HTTP `200 OK` con la cantidad de registros.
-
 ---
 
 ## 5. SECRETOS Y CREDENCIALES
 
-### 5.1 Almacenamiento Seguro
-- **NUNCA** guardes API keys en archivos JSON de workflows o código fuente en GitHub.
-- Utiliza la bóveda de secretos integrada en **Antigravity Vault** (`$secrets.MY_KEY`).
-
-### 5.2 Acceso desde las Tareas (Tasks)
-```javascript
-// Acceso seguro a credenciales en nodos JS
-const sendgridKey = $secrets.SENDGRID_API_KEY;
-const supabaseKey = $secrets.SUPABASE_SERVICE_ROLE_KEY;
-```
-
-### 5.3 Política de Rotación (Rotation Policy)
-- Rotar la `SUPABASE_SERVICE_ROLE_KEY` cada 90 días.
-- Mantener un registro de auditoría en **Vault > Audit Logs**.
+1. **Almacenamiento Seguro:** Guardar API Keys sensibles en **Antigravity Vault** (`$secrets.MY_KEY`), nunca en código fuente visible en GitHub.
+2. **Acceso desde Tasks:** `$secrets.SENDGRID_API_KEY`, `$secrets.SUPABASE_SERVICE_ROLE_KEY`.
 
 ---
 
 ## 6. LOGGING Y MONITORING BÁSICO
 
-### 6.1 Configurar CloudWatch / Stackdriver Logging
-En **Project Settings > Observability**:
-- Habilitar **Stream Logs to CloudWatch / Google Cloud Logging**.
-- Log Level: `INFO` (Cambiar a `DEBUG` solo durante diagnósticos).
-
-### 6.2 Alertas de Sistema
-Configurar en **Alert Rules**:
-- **Alerta 1:** `Task Failure Count > 0` → Notificar vía Slack `#destino-vivo-alerts`.
-- **Alerta 2:** `Workflow Execution Time > 60s` → Enviar correo de advertencia.
+1. **Stackdriver / CloudWatch Logging:** Habilitar log stream a nivel `INFO`.
+2. **Alertas de Sistema:**
+   - `Task Failure Count > 0` → Notificar a Slack `#destino-vivo-alerts`.
+   - `Execution Time > 60s` → Alerta por correo electrónico.
 
 ---
 
-## 7. AMBIENTE DE DESARROLLO LOCAL (`docker-compose.yml`)
+## 7. ENTORNO DE DESARROLLO LOCAL NATIVO (Sin Docker)
 
-Para ejecutar todo el stack de forma local sin conexión a Internet, utiliza el archivo [`docker-compose.yml`](file:///c:/Users/danie/Documents/antigravity/resilient-volta/docker-compose.yml):
+Para desarrollar y probar localmente en tu sistema operativo (Windows/macOS/Linux) **sin necesidad de instalar Docker**:
 
+### 7.1 Requisito Previos
+- **Node.js** (Versión 18+ instalada localmente).
+
+### 7.2 Comandos de Ejecución Local
 ```bash
-# Iniciar stack completo en segundo plano
-docker-compose up -d
+# 1. Iniciar el Servidor de Vista Previa HTML en el puerto 3000
+node scratch/preview-server.js
 
-# Verificar contenedores corriendo
-docker-compose ps
+# 2. En otra terminal, ejecutar la suite de pruebas del motor de precios
+node scratch/test-engine.js
 
-# Ver logs del motor Antigravity
-docker-compose logs -f antigravity-engine
+# 3. Ejecutar la suite de pruebas End-to-End
+node scratch/e2e-test-runner.js
 ```
 
-El servidor local quedará disponible en **`http://localhost:3000`** y el backend PostgreSQL simulado en el puerto `5432`.
+El servidor web nativo de Antigravity quedará disponible inmediatamente en **`http://localhost:3000`**.
 
 ---
 
@@ -190,11 +163,11 @@ El servidor local quedará disponible en **`http://localhost:3000`** y el backen
 
 ### ❌ Problema 1: "DAG / Workflow no aparece en la UI"
 - **Causa:** Sintaxis JSON inválida en el archivo del workflow.
-- **Solución:** Valida el archivo JSON con `jq . antigravity/workflows/my-workflow.json` antes de hacer commit.
+- **Solución:** Valida el archivo JSON ejecutando `node -e "JSON.parse(fs.readFileSync('antigravity/workflows/hello-rms.json'))"`.
 
 ### ❌ Problema 2: "Task Execution Timeout (> 30s)"
 - **Causa:** Petición HTTP bloqueada esperando respuesta de un endpoint externo inalcanzable.
-- **Solución:** Agrega `"timeout": 5000` y `"ignoreError": true` a los nodos de integración de APIs de terceros (ej. OpenWeather).
+- **Solución:** Agrega `"timeout": 5000` y `"ignoreError": true` a los nodos de integración de APIs externas.
 
 ### ❌ Problema 3: "Error HTTP 403 Forbidden al consultar Supabase"
 - **Causa:** Las políticas RLS en PostgreSQL están activas y la petición usa la `ANON_KEY` en lugar de `SERVICE_ROLE_KEY`.
