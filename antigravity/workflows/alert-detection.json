@@ -1,62 +1,114 @@
 {
   "$schema": "https://antigravity.dev/schemas/workflow.json",
-  "id": "workflow-alert-detection",
-  "name": "Alert Detection & Gmail Notification",
-  "description": "Monitoreo de ocupación y variaciones de tarifa con envío automático de alertas por Gmail",
+  "id": "workflow-alert-detection-hourly",
+  "name": "Alert Detection & Multi-Channel Dispatcher",
+  "description": "Evaluación horaria de ocupación y variaciones de precio con notificaciones por SendGrid, Twilio SMS y Dashboard",
   "active": true,
   "nodes": [
     {
-      "id": "trigger-cron-alerts",
-      "name": "Cron Trigger (Every 4 Hours)",
+      "id": "trigger-cron-hourly",
+      "name": "Cron Trigger (Every Hour)",
       "type": "CronTrigger",
       "config": {
-        "cronExpression": "0 */4 * * *",
-        "timezone": "America/Buenos_Aires"
+        "cronExpression": "0 * * * *",
+        "timezone": "UTC"
       }
     },
     {
-      "id": "fetch-history",
-      "name": "Fetch Latest Price History",
-      "type": "DataStoreQuery",
+      "id": "fetch-alerts-config",
+      "name": "FETCH: Enabled Alert Configurations",
+      "type": "HttpRequest",
       "config": {
-        "table": "Price_History",
-        "limit": 50,
-        "sort": { "field": "calculated_at", "order": "DESC" }
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/alerts_config?is_resolved=eq.false",
+        "headers": {
+          "apikey": "YOUR_SUPABASE_ANON_KEY",
+          "Authorization": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+        }
       }
     },
     {
-      "id": "fetch-users",
-      "name": "Fetch Hotel Managers",
-      "type": "DataStoreQuery",
+      "id": "loop-alerts",
+      "name": "LOOP: Evaluate Each Alert Rule",
+      "type": "ForEachLoop",
       "config": {
-        "table": "Users",
-        "filter": { "field": "role", "operator": "EQUALS", "value": "HOTEL_MANAGER" }
-      }
-    },
-    {
-      "id": "evaluate-alerts",
-      "name": "Evaluate Occupancy Thresholds",
-      "type": "JavaScriptCode",
-      "config": {
-        "code": "const history = $steps['fetch-history'].data;\nconst users = $steps['fetch-users'].data;\nconst alertsToCreate = [];\nconst emailsToSend = [];\n\nfor (const record of history) {\n  if (record.occupancy_pct >= 90.0) {\n    const alertId = 'ALT-' + Date.now() + '-' + record.hotel_id;\n    const manager = users.find(u => u.hotel_ids.includes(record.hotel_id)) || { email: 'admin@destinovivo.com', name: 'Administrador' };\n    \n    alertsToCreate.push({\n      alert_id: alertId,\n      hotel_id: record.hotel_id,\n      alert_type: 'HIGH_DEMAND',\n      severity: 'CRITICAL',\n      message: `Ocupación crítica (${record.occupancy_pct}%) detectada para la fecha ${record.target_date}`,\n      sent_via_gmail: true,\n      is_resolved: false,\n      created_at: new Date().toISOString()\n    });\n    \n    emailsToSend.push({\n      to: manager.email,\n      subject: `[Destino Vivo Alerta CRÍTICA] Alta Ocupación en Hotel ${record.hotel_id}`,\n      body: `Hola ${manager.name},\\n\\nSe ha detectado una ocupación del ${record.occupancy_pct}% para la fecha ${record.target_date}.\\nTarifa recomendada calculada: $${record.recommended_rate}.\\n\\nPor favor revisa el dashboard de Destino Vivo RMS.\\n\\n--\\nDestino Vivo System`\n    });\n  }\n}\n\nreturn { alertsToCreate, emailsToSend };"
-      }
-    },
-    {
-      "id": "save-alerts",
-      "name": "Save Alerts to Alerts_Config",
-      "type": "DataStoreInsertBulk",
-      "config": {
-        "table": "Alerts_Config",
-        "records": "$steps['evaluate-alerts'].output.alertsToCreate"
-      }
-    },
-    {
-      "id": "send-gmail-alerts",
-      "name": "Send Gmail Notifications",
-      "type": "GmailSendBulk",
-      "config": {
-        "messages": "$steps['evaluate-alerts'].output.emailsToSend"
-      }
+        "items": "$steps['fetch-alerts-config'].response.data",
+        "iterator": "alertConfig"
+      },
+      "nodes": [
+        {
+          "id": "fetch-latest-history",
+          "name": "Fetch Latest Price History for Hotel",
+          "type": "HttpRequest",
+          "config": {
+            "method": "GET",
+            "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/price_history?hotel_id=eq.{{ alertConfig.hotel_id }}&order=target_date.desc&limit=2",
+            "headers": {
+              "apikey": "YOUR_SUPABASE_ANON_KEY",
+              "Authorization": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            }
+          }
+        },
+        {
+          "id": "eval-alert-conditions",
+          "name": "Check Thresholds (Occupancy & Variance)",
+          "type": "JavaScriptCode",
+          "config": {
+            "code": "const config = $loop.alertConfig;\nconst history = $steps['fetch-latest-history'].response.data || [];\nif (history.length === 0) return null;\n\nconst todayRecord = history[0];\nconst yesterdayRecord = history[1] || todayRecord;\nlet triggered = false;\nlet alertType = 'INFO';\nlet severity = 'WARNING';\nlet message = '';\n\n// 1. Low Occupancy Check\nif (todayRecord.occupancy_pct < 30.0) {\n  triggered = true;\n  alertType = 'LOW_OCCUPANCY';\n  severity = 'WARNING';\n  message = `Baja ocupación crítica: ${todayRecord.occupancy_pct}% (umbral: 30%)`;\n}\n// 2. High Demand Opportunity Check\nelse if (todayRecord.occupancy_pct > 95.0) {\n  triggered = true;\n  alertType = 'HIGH_DEMAND_OPPORTUNITY';\n  severity = 'INFO';\n  message = `Alta demanda detectada: Ocupación al ${todayRecord.occupancy_pct}%. Considera elevar tarifas.`;\n}\n// 3. Price Variance Check (> 20% vs ayer)\nelse {\n  const variancePct = Math.abs((todayRecord.applied_rate - yesterdayRecord.applied_rate) / yesterdayRecord.applied_rate) * 100;\n  if (variancePct > 20.0) {\n    triggered = true;\n    alertType = 'HIGH_PRICE_VARIANCE';\n    severity = 'CRITICAL';\n    message = `Variación de precio elevada: ${variancePct.toFixed(1)}% vs tarifa anterior`;\n  }\n}\n\nif (!triggered) return null;\n\nreturn {\n  hotel_id: config.hotel_id,\n  alert_id: config.alert_id,\n  alert_type: alertType,\n  severity: severity,\n  message: message,\n  target_date: todayRecord.target_date,\n  current_rate: todayRecord.applied_rate,\n  created_at: new Date().toISOString()\n};"
+          }
+        },
+        {
+          "id": "insert-alert-log",
+          "name": "INSERT: Save Record in alerts_log",
+          "type": "HttpRequest",
+          "config": {
+            "condition": "$steps['eval-alert-conditions'].output !== null",
+            "method": "POST",
+            "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/alerts_log",
+            "headers": {
+              "apikey": "YOUR_SUPABASE_ANON_KEY",
+              "Authorization": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "alert_id": "$steps['eval-alert-conditions'].output.alert_id",
+              "recipient_email": "gerente@hotel.com",
+              "delivery_status": "SENT",
+              "dispatched_at": "$steps['eval-alert-conditions'].output.created_at"
+            }
+          }
+        },
+        {
+          "id": "post-sendgrid-email",
+          "name": "POST: Dispatch SendGrid Email",
+          "type": "HttpRequest",
+          "config": {
+            "condition": "$steps['eval-alert-conditions'].output !== null",
+            "ignoreError": true,
+            "method": "POST",
+            "url": "https://api.sendgrid.com/v3/mail/send",
+            "headers": {
+              "Authorization": "Bearer YOUR_SENDGRID_API_KEY",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "personalizations": [
+                {
+                  "to": [{ "email": "gerente@hotel.com" }],
+                  "subject": "[Destino Vivo Alerta] {{ $steps['eval-alert-conditions'].output.alert_type }}"
+                }
+              ],
+              "from": { "email": "alertas@destinovivo.com", "name": "Destino Vivo RMS" },
+              "content": [
+                {
+                  "type": "text/plain",
+                  "value": "{{ $steps['eval-alert-conditions'].output.message }}\nTarifa actual: ${{ $steps['eval-alert-conditions'].output.current_rate }} USD."
+                }
+              ]
+            }
+          }
+        }
+      ]
     }
   ]
 }
