@@ -1,47 +1,135 @@
 {
   "$schema": "https://antigravity.dev/schemas/page.json",
-  "id": "page-dashboard",
-  "name": "Dashboard",
+  "id": "page-dashboard-home",
+  "name": "Dashboard Home",
   "route": "/dashboard",
-  "title": "Dashboard Tarifas & Alertas - Destino Vivo",
+  "title": "Inicio - Destino Vivo RMS",
   "layout": "app-sidebar",
+  "dataQueries": [
+    {
+      "id": "query-hotel",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/hotels",
+      "params": {
+        "select": "hotel_id,name,base_rate",
+        "limit": "1"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    },
+    {
+      "id": "query-history",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/price_history",
+      "params": {
+        "select": "history_id,target_date,recommended_rate,occupancy_pct",
+        "order": "target_date.desc",
+        "limit": "3"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    },
+    {
+      "id": "query-alerts",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/alerts_config",
+      "params": {
+        "select": "alert_id,alert_type,severity,message,created_at",
+        "order": "created_at.desc",
+        "limit": "3"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    }
+  ],
   "components": [
     {
-      "id": "sidebar-nav",
-      "type": "Sidebar",
+      "id": "welcome-header",
+      "type": "HeaderBar",
       "props": {
-        "items": [
-          { "label": "Visión General", "icon": "dashboard", "route": "/dashboard" },
-          { "label": "Hoteles & Onboarding", "icon": "hotel", "route": "/dashboard/hotels" },
-          { "label": "Reglas de Precios", "icon": "rule", "route": "/dashboard/rules" },
-          { "label": "Historial de Tarifas", "icon": "history", "route": "/dashboard/history" },
-          { "label": "Alertas Gmail", "icon": "mail", "route": "/dashboard/alerts" }
+        "title": "Bienvenido, {{ $queries.query-hotel.data[0].name || 'Cargando hotel...' }}",
+        "subtitle": "Resumen de ocupación, tarifas y alertas del día",
+        "responsive": { "mobile": "stack", "desktop": "row" }
+      }
+    },
+    {
+      "id": "quick-actions-bar",
+      "type": "ButtonGroup",
+      "props": {
+        "responsive": { "mobile": "full-width", "desktop": "inline" },
+        "buttons": [
+          { "label": "Pricing Dashboard", "icon": "trending_up", "variant": "primary", "action": { "type": "navigate", "target": "/pricing" } },
+          { "label": "Alerts Dashboard", "icon": "notifications", "variant": "outline", "action": { "type": "navigate", "target": "/alerts" } },
+          { "label": "Settings", "icon": "settings", "variant": "ghost", "action": { "type": "navigate", "target": "/settings" } }
         ]
       }
     },
     {
-      "id": "metrics-grid",
+      "id": "quick-stats-grid",
       "type": "Grid",
-      "props": { "columns": 4 },
+      "props": {
+        "columns": { "mobile": 1, "tablet": 2, "desktop": 3 },
+        "gap": "16px"
+      },
       "children": [
-        { "id": "metric-hotels", "type": "StatCard", "props": { "title": "Hoteles Activos", "value": "1", "icon": "hotel" } },
-        { "id": "metric-occupancy", "type": "StatCard", "props": { "title": "Ocupación Promedio", "value": "78%", "icon": "percent" } },
-        { "id": "metric-rate", "type": "StatCard", "props": { "title": "Tarifa Promedio", "value": "$125.00", "icon": "dollar" } },
-        { "id": "metric-alerts", "type": "StatCard", "props": { "title": "Alertas Pendientes", "value": "2", "icon": "warning" } }
+        {
+          "id": "stat-occupancy",
+          "type": "StatCard",
+          "props": {
+            "title": "Ocupación Hoy",
+            "value": "{{ $queries.query-history.data[0].occupancy_pct || 0 }}%",
+            "icon": "percent",
+            "trend": "+4% vs semana pasada"
+          }
+        },
+        {
+          "id": "stat-price",
+          "type": "StatCard",
+          "props": {
+            "title": "Precio Actual",
+            "value": "${{ $queries.query-history.data[0].recommended_rate || $queries.query-hotel.data[0].base_rate || 0 }} USD",
+            "icon": "attach_money",
+            "trend": "Tarifa optimizada"
+          }
+        },
+        {
+          "id": "stat-alerts-count",
+          "type": "StatCard",
+          "props": {
+            "title": "Alertas Recientes",
+            "value": "{{ $queries.query-alerts.data.length || 0 }} activas",
+            "icon": "warning",
+            "badgeColor": "warning"
+          }
+        }
       ]
     },
     {
-      "id": "pricing-table", "type": "DataTable",
+      "id": "alerts-recent-list",
+      "type": "Card",
       "props": {
-        "dataSource": "Price_History",
-        "title": "Últimas Tarifas Recomendadas",
-        "columns": [
-          { "key": "hotel_id", "label": "Hotel" },
-          { "key": "target_date", "label": "Fecha Tarifa" },
-          { "key": "recommended_rate", "label": "Tarifa Rec." },
-          { "key": "occupancy_pct", "label": "Ocupación %" }
-        ]
-      }
+        "title": "Últimas Alertas (3)",
+        "actionText": "Ver todas",
+        "actionTarget": "/alerts"
+      },
+      "children": [
+        {
+          "id": "list-alerts",
+          "type": "List",
+          "props": {
+            "items": "$queries.query-alerts.data",
+            "itemTitle": "{{ item.message }}",
+            "itemSubtitle": "Recibido: {{ item.created_at }}",
+            "itemBadge": "{{ item.severity }}"
+          }
+        }
+      ]
     }
   ]
 }
