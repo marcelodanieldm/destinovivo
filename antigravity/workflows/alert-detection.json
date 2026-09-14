@@ -1,0 +1,62 @@
+{
+  "$schema": "https://antigravity.dev/schemas/workflow.json",
+  "id": "workflow-alert-detection",
+  "name": "Alert Detection & Gmail Notification",
+  "description": "Monitoreo de ocupación y variaciones de tarifa con envío automático de alertas por Gmail",
+  "active": true,
+  "nodes": [
+    {
+      "id": "trigger-cron-alerts",
+      "name": "Cron Trigger (Every 4 Hours)",
+      "type": "CronTrigger",
+      "config": {
+        "cronExpression": "0 */4 * * *",
+        "timezone": "America/Buenos_Aires"
+      }
+    },
+    {
+      "id": "fetch-history",
+      "name": "Fetch Latest Price History",
+      "type": "DataStoreQuery",
+      "config": {
+        "table": "Price_History",
+        "limit": 50,
+        "sort": { "field": "calculated_at", "order": "DESC" }
+      }
+    },
+    {
+      "id": "fetch-users",
+      "name": "Fetch Hotel Managers",
+      "type": "DataStoreQuery",
+      "config": {
+        "table": "Users",
+        "filter": { "field": "role", "operator": "EQUALS", "value": "HOTEL_MANAGER" }
+      }
+    },
+    {
+      "id": "evaluate-alerts",
+      "name": "Evaluate Occupancy Thresholds",
+      "type": "JavaScriptCode",
+      "config": {
+        "code": "const history = $steps['fetch-history'].data;\nconst users = $steps['fetch-users'].data;\nconst alertsToCreate = [];\nconst emailsToSend = [];\n\nfor (const record of history) {\n  if (record.occupancy_pct >= 90.0) {\n    const alertId = 'ALT-' + Date.now() + '-' + record.hotel_id;\n    const manager = users.find(u => u.hotel_ids.includes(record.hotel_id)) || { email: 'admin@destinovivo.com', name: 'Administrador' };\n    \n    alertsToCreate.push({\n      alert_id: alertId,\n      hotel_id: record.hotel_id,\n      alert_type: 'HIGH_DEMAND',\n      severity: 'CRITICAL',\n      message: `Ocupación crítica (${record.occupancy_pct}%) detectada para la fecha ${record.target_date}`,\n      sent_via_gmail: true,\n      is_resolved: false,\n      created_at: new Date().toISOString()\n    });\n    \n    emailsToSend.push({\n      to: manager.email,\n      subject: `[Destino Vivo Alerta CRÍTICA] Alta Ocupación en Hotel ${record.hotel_id}`,\n      body: `Hola ${manager.name},\\n\\nSe ha detectado una ocupación del ${record.occupancy_pct}% para la fecha ${record.target_date}.\\nTarifa recomendada calculada: $${record.recommended_rate}.\\n\\nPor favor revisa el dashboard de Destino Vivo RMS.\\n\\n--\\nDestino Vivo System`\n    });\n  }\n}\n\nreturn { alertsToCreate, emailsToSend };"
+      }
+    },
+    {
+      "id": "save-alerts",
+      "name": "Save Alerts to Alerts_Config",
+      "type": "DataStoreInsertBulk",
+      "config": {
+        "table": "Alerts_Config",
+        "records": "$steps['evaluate-alerts'].output.alertsToCreate"
+      }
+    },
+    {
+      "id": "send-gmail-alerts",
+      "name": "Send Gmail Notifications",
+      "type": "GmailSendBulk",
+      "config": {
+        "messages": "$steps['evaluate-alerts'].output.emailsToSend"
+      }
+    }
+  ]
+}

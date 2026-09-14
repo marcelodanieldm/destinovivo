@@ -1,0 +1,62 @@
+{
+  "Users": [
+    {
+      "user_id": "USR-1001",
+      "email": "gerente@hotelboutiquesol.com",
+      "name": "Carlos Mendoza",
+      "role": "HOTEL_MANAGER",
+      "hotel_ids": ["HOT-001"],
+      "created_at": "2026-09-14T10:00:00Z",
+      "status": "ACTIVE"
+    }
+  ],
+  "Hotels": [
+    {
+      "hotel_id": "HOT-001",
+      "name": "Hotel Boutique Sol",
+      "country": "Argentina",
+      "city": "Buenos Aires",
+      "currency": "USD",
+      "total_rooms": 45,
+      "base_rate": 120.00,
+      "min_rate": 80.00,
+      "max_rate": 350.00,
+      "created_at": "2026-09-14T10:00:00Z"
+    }
+  ],
+  "Pricing_Rules": [
+    {
+      "rule_id": "RUL-501",
+      "hotel_id": "HOT-001",
+      "rule_type": "OCCUPANCY_SURGE",
+      "threshold_min": 80.00,
+      "threshold_max": 100.00,
+      "adjustment_type": "PERCENTAGE",
+      "adjustment_value": 15.00,
+      "is_active": true
+    }
+  ],
+  "Price_History": [
+    {
+      "history_id": "HIS-9001",
+      "hotel_id": "HOT-001",
+      "target_date": "2026-10-15",
+      "recommended_rate": 138.00,
+      "applied_rate": 138.00,
+      "occupancy_pct": 85.00,
+      "calculated_at": "2026-09-14T02:00:00Z"
+    }
+  ],
+  "Alerts_Config": [
+    {
+      "alert_id": "ALT-301",
+      "hotel_id": "HOT-001",
+      "alert_type": "HIGH_DEMAND",
+      "severity": "CRITICAL",
+      "message": "Ocupación superó 85% para el 15 de Octubre",
+      "sent_via_gmail": true,
+      "is_resolved": false,
+      "created_at": "2026-09-14T08:30:00Z"
+    }
+  ]
+}
