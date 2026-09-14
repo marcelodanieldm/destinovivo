@@ -1,19 +1,47 @@
 {
   "$schema": "https://antigravity.dev/schemas/page.json",
-  "id": "page-alerts-dashboard",
+  "id": "page-alerts-dashboard-advanced",
   "name": "Alerts Dashboard",
   "route": "/alerts",
-  "title": "Centro de Alertas & Gmail - Destino Vivo RMS",
+  "title": "Centro de Alertas & Notificaciones - Destino Vivo RMS",
   "layout": "app-sidebar",
   "dataQueries": [
     {
-      "id": "query-all-alerts",
+      "id": "query-active-alerts",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/alerts_log",
+      "params": {
+        "select": "log_id,alert_id,recipient_email,delivery_status,dispatched_at,alerts_config(alert_type,message,severity)",
+        "delivery_status": "eq.SENT",
+        "order": "dispatched_at.desc"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    },
+    {
+      "id": "query-alert-config",
       "endpoint": "Supabase REST API",
       "method": "GET",
       "path": "/alerts_config",
       "params": {
-        "select": "alert_id,hotel_id,alert_type,severity,message,sent_via_gmail,is_resolved,created_at",
-        "order": "created_at.desc"
+        "select": "alert_id,hotel_id,alert_type,severity,message,sent_via_gmail,is_resolved",
+        "order": "alert_type.asc"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    },
+    {
+      "id": "query-alert-history-24h",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/alerts_log",
+      "params": {
+        "select": "log_id,alert_id,recipient_email,delivery_status,dispatched_at",
+        "order": "dispatched_at.desc",
+        "limit": "50"
       },
       "headers": {
         "Authorization": "Bearer $session.sb-access-token"
@@ -22,35 +50,106 @@
   ],
   "components": [
     {
-      "id": "alerts-header",
+      "id": "alerts-header-bar",
       "type": "HeaderBar",
       "props": {
-        "title": "Centro de Alertas y Notificaciones Gmail",
-        "subtitle": "Historial de anomalías de ocupación y estado de entrega de correos"
+        "title": "Centro de Notificaciones & Alertas",
+        "subtitle": "Gestión de incidencias de ocupación, configuración de reglas y registro de entregas"
       }
     },
     {
-      "id": "alerts-table",
-      "type": "DataTable",
+      "id": "sec-active-alerts",
+      "type": "CardSection",
       "props": {
-        "dataSource": "$queries.query-all-alerts.data",
-        "columns": [
-          { "key": "created_at", "label": "Fecha / Hora" },
-          { "key": "severity", "label": "Severidad", "badgeColors": { "CRITICAL": "red", "WARNING": "yellow", "INFO": "blue" } },
-          { "key": "message", "label": "Detalle de Alerta" },
-          { "key": "sent_via_gmail", "label": "Gmail Enviado", "format": "boolean" },
-          { "key": "is_resolved", "label": "Estado", "format": "boolean" }
-        ],
-        "rowActions": [
-          {
-            "label": "Marcar Resuelta",
-            "action": "http_patch",
-            "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/alerts_config?alert_id=eq.$row.alert_id",
-            "body": { "is_resolved": true },
-            "onSuccess": { "type": "refresh_data" }
+        "title": "🚨 Active Alerts (Urgente)",
+        "cardStyle": "danger-border",
+        "headerBg": "#fef2f2",
+        "borderColor": "#ef4444"
+      },
+      "children": [
+        {
+          "id": "list-active-alerts",
+          "type": "AlertList",
+          "props": {
+            "dataSource": "$queries.query-active-alerts.data",
+            "emptyStateText": "No hay alertas activas pendientes de confirmación",
+            "severityColor": "#dc2626",
+            "itemTitle": "{{ item.alerts_config.alert_type }}",
+            "itemBody": "{{ item.alerts_config.message }}",
+            "itemTime": "{{ item.dispatched_at }}",
+            "actions": [
+              {
+                "label": "Acknowledge (Reconocer)",
+                "variant": "danger",
+                "action": "http_patch",
+                "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/alerts_log?log_id=eq.$row.log_id",
+                "headers": {
+                  "apikey": "YOUR_SUPABASE_ANON_KEY",
+                  "Authorization": "Bearer $session.sb-access-token",
+                  "Content-Type": "application/json"
+                },
+                "body": {
+                  "delivery_status": "ACKNOWLEDGED"
+                },
+                "onSuccess": {
+                  "type": "refresh_data"
+                }
+              }
+            ]
           }
-        ]
-      }
+        }
+      ]
+    },
+    {
+      "id": "sec-alert-config",
+      "type": "CardSection",
+      "props": {
+        "title": "⚙️ Alert Configuration"
+      },
+      "children": [
+        {
+          "id": "table-alert-config",
+          "type": "DataTable",
+          "props": {
+            "dataSource": "$queries.query-alert-config.data",
+            "columns": [
+              { "key": "alert_type", "label": "Tipo de Alerta" },
+              { "key": "severity", "label": "Severidad" },
+              { "key": "message", "label": "Mensaje por Defecto" },
+              { "key": "sent_via_gmail", "label": "Notificar Gmail", "format": "toggle" },
+              { "key": "is_resolved", "label": "Resuelto", "format": "boolean" }
+            ],
+            "rowActions": [
+              {
+                "label": "Editar Regla",
+                "action": "open_modal",
+                "targetModal": "modal-edit-alert-config"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "sec-alert-history",
+      "type": "CardSection",
+      "props": {
+        "title": "📜 Alert History (Últimas 24 Horas)"
+      },
+      "children": [
+        {
+          "id": "table-alert-history",
+          "type": "DataTable",
+          "props": {
+            "dataSource": "$queries.query-alert-history-24h.data",
+            "columns": [
+              { "key": "dispatched_at", "label": "Fecha / Hora" },
+              { "key": "recipient_email", "label": "Destinatario" },
+              { "key": "delivery_status", "label": "Estado", "badgeColors": { "SENT": "red", "ACKNOWLEDGED": "blue", "RESOLVED": "green" } }
+            ]
+          }
+        }
+      ]
     }
   ]
 }
