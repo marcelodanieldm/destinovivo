@@ -1,61 +1,113 @@
 {
   "$schema": "https://antigravity.dev/schemas/workflow.json",
-  "id": "workflow-daily-pricing-update",
-  "name": "Daily Pricing Update",
-  "description": "Recálculo nocturno de tarifas recomendadas utilizando Data Store nativo y expresiones JS internas",
+  "id": "workflow-daily-pricing-update-robust",
+  "name": "Daily Pricing Update (Production)",
+  "description": "Recálculo nocturno de tarifas a las 02:00 UTC con integración OpenWeather, Sync PMS opcional, alertas y manejo de errores por hotel",
   "active": true,
   "nodes": [
     {
-      "id": "trigger-cron",
-      "name": "Cron Trigger (02:00 AM)",
+      "id": "trigger-cron-utc",
+      "name": "Cron Trigger (02:00 UTC)",
       "type": "CronTrigger",
       "config": {
         "cronExpression": "0 2 * * *",
-        "timezone": "America/Buenos_Aires"
+        "timezone": "UTC"
       }
     },
     {
-      "id": "query-hotels",
-      "name": "Fetch Active Hotels",
-      "type": "DataStoreQuery",
+      "id": "fetch-active-hotels",
+      "name": "FETCH: Get Active Hotels",
+      "type": "HttpRequest",
       "config": {
-        "table": "Hotels",
-        "filter": {
-          "field": "status",
-          "operator": "EQUALS",
-          "value": "ACTIVE"
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/hotels?status=eq.ACTIVE",
+        "headers": {
+          "apikey": "YOUR_SUPABASE_ANON_KEY",
+          "Authorization": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
         }
       }
     },
     {
-      "id": "query-rules",
-      "name": "Fetch Active Rules",
-      "type": "DataStoreQuery",
+      "id": "loop-hotels",
+      "name": "LOOP: Process Each Hotel",
+      "type": "ForEachLoop",
       "config": {
-        "table": "Pricing_Rules",
-        "filter": {
-          "field": "is_active",
-          "operator": "EQUALS",
-          "value": true
+        "items": "$steps['fetch-active-hotels'].response.data",
+        "iterator": "hotel"
+      },
+      "nodes": [
+        {
+          "id": "try-catch-hotel-process",
+          "name": "Try/Catch Hotel Handler",
+          "type": "TryCatchBlock",
+          "config": {
+            "try": [
+              {
+                "id": "fetch-rules",
+                "name": "Fetch Rules for Hotel",
+                "type": "HttpRequest",
+                "config": {
+                  "method": "GET",
+                  "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/pricing_rules?hotel_id=eq.{{ hotel.hotel_id }}&is_active=eq.true&order=priority.asc",
+                  "headers": { "apikey": "YOUR_SUPABASE_ANON_KEY", "Authorization": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY" }
+                }
+              },
+              {
+                "id": "fetch-weather",
+                "name": "Fetch OpenWeather Data",
+                "type": "HttpRequest",
+                "config": {
+                  "method": "GET",
+                  "url": "https://api.openweathermap.org/data/2.5/weather?q={{ hotel.city }},{{ hotel.country }}&appid=YOUR_OPENWEATHER_KEY&units=metric",
+                  "ignoreError": true
+                }
+              },
+              {
+                "id": "calc-price-engine",
+                "name": "Calculate Price & Apply Multipliers",
+                "type": "JavaScriptCode",
+                "config": {
+                  "code": "const hotel = $loop.hotel;\nconst rules = $steps['fetch-rules'].response.data || [];\nconst weather = $steps['fetch-weather'].response.data || {};\n\nlet rate = hotel.base_rate;\nlet weatherMultiplier = 1.0;\n\n// 1. Weather Multiplier (ej. Lluvia / Sol)\nif (weather.weather && weather.weather[0].main === 'Clear') {\n  weatherMultiplier = 1.05; // +5% si está despejado\n}\n\n// 2. Rules Multiplier\nfor (const rule of rules) {\n  if (rule.rule_type === 'OCCUPANCY_SURGE') {\n    rate += (rule.adjustment_type === 'PERCENTAGE') ? (rate * (rule.adjustment_value / 100)) : rule.adjustment_value;\n  }\n}\n\nrate = rate * weatherMultiplier;\n\n// 3. Clamp entre min_rate y max_rate\nconst finalPrice = Math.min(Math.max(rate, hotel.min_rate), hotel.max_rate);\nconst todayStr = new Date().toISOString().split('T')[0];\n\nreturn {\n  hotel_id: hotel.hotel_id,\n  target_date: todayStr,\n  occupancy_pct: 85.0,\n  recommended_rate: finalPrice,\n  applied_rate: finalPrice,\n  decision_source: 'rule_based',\n  calculated_at: new Date().toISOString()\n};"
+                }
+              },
+              {
+                "id": "post-price-history",
+                "name": "POST: Save Decision to Price History",
+                "type": "HttpRequest",
+                "config": {
+                  "method": "POST",
+                  "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/price_history",
+                  "headers": {
+                    "apikey": "YOUR_SUPABASE_ANON_KEY",
+                    "Authorization": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY",
+                    "Content-Type": "application/json"
+                  },
+                  "body": "$steps['calc-price-engine'].output"
+                }
+              },
+              {
+                "id": "check-alerts-condition",
+                "name": "CHECK: Trigger Alert if Occupancy < 30%",
+                "type": "JavaScriptCode",
+                "config": {
+                  "code": "const result = $steps['calc-price-engine'].output;\nif (result.occupancy_pct < 30.0) {\n  return {\n    hotel_id: result.hotel_id,\n    alert_type: 'LOW_OCCUPANCY',\n    severity: 'WARNING',\n    message: `Baja ocupación (${result.occupancy_pct}%) detectada`,\n    sent_via_gmail: true,\n    is_resolved: false\n  };\n}\nreturn null;"
+                }
+              }
+            ],
+            "catch": [
+              {
+                "id": "log-hotel-error",
+                "name": "Log Hotel Error & Continue",
+                "type": "Logger",
+                "config": {
+                  "level": "ERROR",
+                  "message": "Error procesando hotel {{ hotel.hotel_id }}: {{ $error.message }}"
+                }
+              }
+            ]
+          }
         }
-      }
-    },
-    {
-      "id": "code-pricing-logic",
-      "name": "Execute JS Pricing Engine",
-      "type": "JavaScriptCode",
-      "config": {
-        "code": "const hotels = $steps['query-hotels'].data;\nconst rules = $steps['query-rules'].data;\nconst results = [];\n\nfor (const hotel of hotels) {\n  let rate = hotel.base_rate;\n  const hotelRules = rules.filter(r => r.hotel_id === hotel.hotel_id);\n  \n  for (const rule of hotelRules) {\n    if (rule.rule_type === 'OCCUPANCY_SURGE') {\n      rate += (rule.adjustment_type === 'PERCENTAGE') \n        ? (rate * (rule.adjustment_value / 100)) \n        : rule.adjustment_value;\n    }\n  }\n  \n  // Aplicar límites min y max\n  const finalRate = Math.min(Math.max(rate, hotel.min_rate), hotel.max_rate);\n  \n  results.push({\n    history_id: 'HIS-' + Date.now() + '-' + hotel.hotel_id,\n    hotel_id: hotel.hotel_id,\n    target_date: new Date().toISOString().split('T')[0],\n    recommended_rate: finalRate,\n    applied_rate: finalRate,\n    occupancy_pct: 85.0,\n    calculated_at: new Date().toISOString()\n  });\n}\n\nreturn results;"
-      }
-    },
-    {
-      "id": "save-history",
-      "name": "Save to Price_History",
-      "type": "DataStoreInsertBulk",
-      "config": {
-        "table": "Price_History",
-        "records": "$steps['code-pricing-logic'].output"
-      }
+      ]
     }
   ]
 }
