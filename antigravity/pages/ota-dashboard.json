@@ -1,0 +1,79 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-ota-dashboard",
+  "name": "OTA & Channel Manager Dashboard",
+  "route": "/ota-dashboard",
+  "title": "Gestión Multi-Canal OTA & Paridad - Destino Vivo RMS",
+  "layout": "app-sidebar",
+  "dataQueries": [
+    {
+      "id": "query-ota-sync-status",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/api_logs",
+      "params": {
+        "service": "like.*ota*",
+        "order": "created_at.desc",
+        "limit": "50"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    }
+  ],
+  "components": [
+    {
+      "id": "ota-header",
+      "type": "HeaderBar",
+      "props": {
+        "title": "Monitoreo Multi-Canal OTA & Paridad de Tarifas",
+        "subtitle": "Estado de sincronización en tiempo real con Booking.com, Expedia, Agoda, Google Hotels y Directo"
+      }
+    },
+    {
+      "id": "ota-channel-matrix-grid",
+      "type": "Grid",
+      "props": { "columns": 5, "gap": "16px" },
+      "children": [
+        { "id": "card-direct", "type": "StatCard", "props": { "title": "Venta Directa (15%)", "value": "$100.00 USD", "badge": "Margen 100%", "badgeColor": "success" } },
+        { "id": "card-google", "type": "StatCard", "props": { "title": "Google Hotels (10%)", "value": "$111.11 USD", "badge": "Comisión 10%", "badgeColor": "info" } },
+        { "id": "card-booking", "type": "StatCard", "props": { "title": "Booking.com (30%)", "value": "$117.65 USD", "badge": "Comisión 15%", "badgeColor": "info" } },
+        { "id": "card-agoda", "type": "StatCard", "props": { "title": "Agoda (20%)", "value": "$121.95 USD", "badge": "Comisión 18%", "badgeColor": "warning" } },
+        { "id": "card-expedia", "type": "StatCard", "props": { "title": "Expedia (25%)", "value": "$125.00 USD", "badge": "Comisión 20%", "badgeColor": "warning" } }
+      ]
+    },
+    {
+      "id": "sec-parity-status",
+      "type": "CardSection",
+      "props": {
+        "title": "🏆 Rate Parity Status (Cumplimiento del 100%)",
+        "cardStyle": "success-border"
+      },
+      "children": [
+        {
+          "id": "txt-parity-rule",
+          "type": "Markdown",
+          "props": {
+            "content": "**Regla de Oro:** `Tarifa Directa <= Tarifa OTA * (1 - Comisión %)`. Sincronizaciones con violaciones de paridad son bloqueadas automáticamente para proteger la rentabilidad directa."
+          }
+        }
+      ]
+    },
+    {
+      "id": "ota-sync-table",
+      "type": "DataTable",
+      "props": {
+        "title": "Historial de Sincronizaciones de Inventario & Tarifas",
+        "dataSource": "$queries.query-ota-sync-status.data",
+        "columns": [
+          { "key": "created_at", "label": "Fecha / Hora" },
+          { "key": "service", "label": "Canal OTA" },
+          { "key": "endpoint", "label": "Endpoint API" },
+          { "key": "status_code", "label": "HTTP Status" },
+          { "key": "response_time_ms", "label": "Latencia (ms)" },
+          { "key": "success", "label": "Sincronizado", "format": "boolean" }
+        ]
+      }
+    }
+  ]
+}
