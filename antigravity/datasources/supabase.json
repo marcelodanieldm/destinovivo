@@ -1,0 +1,38 @@
+{
+  "$schema": "https://antigravity.dev/schemas/datasource.json",
+  "id": "datasource-supabase-rest",
+  "name": "Supabase REST API",
+  "type": "HTTP_REST",
+  "config": {
+    "baseUrl": "https://YOUR_PROJECT_ID.supabase.co/rest/v1",
+    "headers": {
+      "apikey": "YOUR_SUPABASE_ANON_KEY",
+      "Authorization": "Bearer YOUR_SUPABASE_ANON_KEY",
+      "Content-Type": "application/json",
+      "Prefer": "return=representation"
+    }
+  },
+  "endpoints": [
+    {
+      "name": "Get Hotels",
+      "method": "GET",
+      "path": "/hotels",
+      "queryParams": {
+        "select": "*"
+      }
+    },
+    {
+      "name": "Get Pricing Rules",
+      "method": "GET",
+      "path": "/pricing_rules",
+      "queryParams": {
+        "select": "*"
+      }
+    },
+    {
+      "name": "Insert Price History",
+      "method": "POST",
+      "path": "/price_history"
+    }
+  ]
+}
