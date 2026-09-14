@@ -1,0 +1,79 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-backoffice-dashboard",
+  "name": "Backoffice Dashboard",
+  "route": "/backoffice/dashboard",
+  "title": "Panel General de Control - Destino Vivo Backoffice",
+  "layout": "app-sidebar",
+  "dataQueries": [
+    {
+      "id": "query-all-hotels-admin",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/hotels",
+      "params": {
+        "select": "hotel_id,name,country,city,total_rooms,subscription_tier,status,created_at",
+        "order": "created_at.desc"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.dv-admin-token"
+      }
+    },
+    {
+      "id": "query-system-logs-admin",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/alerts_log",
+      "params": {
+        "select": "log_id,alert_id,recipient_email,delivery_status,dispatched_at",
+        "order": "dispatched_at.desc",
+        "limit": "100"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.dv-admin-token"
+      }
+    }
+  ],
+  "components": [
+    {
+      "id": "backoffice-header",
+      "type": "HeaderBar",
+      "props": {
+        "title": "Destino Vivo Platform Backoffice",
+        "subtitle": "Vista global multi-hotel para el equipo de administración interna",
+        "theme": "dark"
+      }
+    },
+    {
+      "id": "global-stats-grid",
+      "type": "Grid",
+      "props": { "columns": 4, "gap": "16px" },
+      "children": [
+        { "id": "stat-total-hotels", "type": "StatCard", "props": { "title": "Total Hoteles en Plataforma", "value": "{{ $queries.query-all-hotels-admin.data.length }}", "icon": "domain" } },
+        { "id": "stat-active-hotels", "type": "StatCard", "props": { "title": "Hoteles Activos", "value": "100%", "icon": "check_circle", "badgeColor": "success" } },
+        { "id": "stat-logs-dispatched", "type": "StatCard", "props": { "title": "Alertas Notificadas (Total)", "value": "{{ $queries.query-system-logs-admin.data.length }}", "icon": "mail" } },
+        { "id": "stat-platform-arr", "type": "StatCard", "props": { "title": "MRR Estimado", "value": "$0.00 (Fase 0)", "icon": "payments" } }
+      ]
+    },
+    {
+      "id": "table-all-hotels-admin",
+      "type": "DataTable",
+      "props": {
+        "title": "Todos los Hoteles Registrados (Multi-Tenant Overview)",
+        "dataSource": "$queries.query-all-hotels-admin.data",
+        "columns": [
+          { "key": "hotel_id", "label": "ID Hotel" },
+          { "key": "name", "label": "Nombre del Hotel" },
+          { "key": "city", "label": "Ciudad" },
+          { "key": "country", "label": "País" },
+          { "key": "total_rooms", "label": "Habitaciones" },
+          { "key": "subscription_tier", "label": "Plan" },
+          { "key": "status", "label": "Estado", "badgeColors": { "ACTIVE": "green", "SUSPENDED": "red" } }
+        ],
+        "rowActions": [
+          { "label": "Inspeccionar Hotel", "action": "navigate", "target": "/backoffice/hotel/{{ $row.hotel_id }}" }
+        ]
+      }
+    }
+  ]
+}

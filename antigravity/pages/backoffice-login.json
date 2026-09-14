@@ -1,0 +1,95 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-backoffice-login",
+  "name": "Backoffice Login",
+  "route": "/backoffice/login",
+  "title": "Portal Interno Admin - Destino Vivo RMS",
+  "layout": "auth-centered",
+  "components": [
+    {
+      "id": "card-backoffice-login",
+      "type": "Card",
+      "props": {
+        "title": "Destino Vivo Backoffice",
+        "subtitle": "Acceso restringido para el equipo de administración de Destino Vivo",
+        "maxWidth": "440px",
+        "align": "center",
+        "headerBg": "#1e293b",
+        "titleColor": "#ffffff"
+      },
+      "children": [
+        {
+          "id": "form-backoffice-auth",
+          "type": "Form",
+          "props": {
+            "onSubmit": {
+              "action": "http_post",
+              "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/auth/v1/token?grant_type=password",
+              "headers": {
+                "apikey": "YOUR_SUPABASE_ANON_KEY",
+                "Content-Type": "application/json"
+              },
+              "body": {
+                "email": "$form.email",
+                "password": "$form.password"
+              },
+              "onSuccess": [
+                {
+                  "type": "verify_role",
+                  "requiredRole": "destino_vivo_admin",
+                  "onMatch": [
+                    { "type": "store_token", "key": "dv-admin-token", "value": "$response.access_token" },
+                    { "type": "navigate", "target": "/backoffice/dashboard" }
+                  ],
+                  "onMismatch": {
+                    "type": "show_alert",
+                    "severity": "error",
+                    "message": "Acceso denegado: Tu cuenta no tiene permisos de administrador de plataforma"
+                  }
+                }
+              ],
+              "onFailure": {
+                "type": "show_alert",
+                "severity": "error",
+                "message": "Credenciales inválidas"
+              }
+            }
+          },
+          "children": [
+            {
+              "id": "input-admin-email",
+              "type": "TextInput",
+              "props": {
+                "name": "email",
+                "label": "Correo Admin Interno",
+                "placeholder": "admin@destinovivo.com",
+                "inputType": "email",
+                "required": true
+              }
+            },
+            {
+              "id": "input-admin-password",
+              "type": "PasswordInput",
+              "props": {
+                "name": "password",
+                "label": "Contraseña de Acceso",
+                "placeholder": "••••••••",
+                "required": true
+              }
+            },
+            {
+              "id": "btn-submit-backoffice",
+              "type": "Button",
+              "props": {
+                "label": "Ingresar al Backoffice",
+                "variant": "dark",
+                "fullWidth": true,
+                "type": "submit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
