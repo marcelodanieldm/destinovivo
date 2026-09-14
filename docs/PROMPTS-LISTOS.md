@@ -1,6 +1,6 @@
-# 💬 PROMPTS-LISTOS.md - Biblioteca de Prompts Operativos
+# 💬 PROMPTS-LISTOS.md - Biblioteca de Prompts Operativos (Stack Autónomo)
 
-Colección de prompts pre-construidos para agilizar el desarrollo de Destino Vivo.
+Colección de prompts pre-construidos para agilizar el desarrollo de Destino Vivo con Antigravity y Gmail.
 
 ---
 
@@ -8,7 +8,7 @@ Colección de prompts pre-construidos para agilizar el desarrollo de Destino Viv
 
 ```text
 Destino Vivo: Genera la especificación paso a paso para construir la pantalla de "Hotel Onboarding" en Antigravity.
-Incluye los campos del formulario acorde a docs/GOOGLE-SHEETS-SCHEMA.md (Hotels sheet) y las reglas de validación en tiempo real.
+Incluye los campos del formulario acorde a docs/NATIVE-DATA-SCHEMA.md (Hotels table) y la acción de envío de correo de bienvenida vía Gmail.
 ```
 
 ---
@@ -16,14 +16,14 @@ Incluye los campos del formulario acorde a docs/GOOGLE-SHEETS-SCHEMA.md (Hotels 
 ## 2. Prompt: Implementar Workflow "Daily Pricing Update"
 
 ```text
-Destino Vivo: Ayúdame a diseñar el workflow "Daily Pricing Update" en Antigravity.
-Debe ejecutarse a las 02:00 AM, leer los hoteles activos de Google Sheets, llamar a la Cloud Function calculatePricing y guardar los resultados en la pestaña Price_History.
+Destino Vivo: Ayúdame a diseñar el workflow "Daily Pricing Update" autónomo en Antigravity.
+Debe ejecutarse a las 02:00 AM, leer los hoteles activos de la tabla nativa Hotels, calcular los precios mediante una función JS integrada y guardar los resultados en la tabla Price_History.
 ```
 
 ---
 
-## 3. Prompt: Validar Esquema de Google Sheets
+## 3. Prompt: Configurar Alertas por Gmail
 
 ```text
-Destino Vivo: Revisa si los campos de la pestaña Pricing_Rules en docs/GOOGLE-SHEETS-SCHEMA.md son suficientes para soportar descuentos por temporada alta y sobrecargos de fin de semana. Propón cambios si es necesario.
+Destino Vivo: Escribe la configuración para el workflow de "Alert Detection" en Antigravity que detecte ocupación superior al 90% y envíe un correo electrónico formateado por Gmail al gerente del hotel.
 ```

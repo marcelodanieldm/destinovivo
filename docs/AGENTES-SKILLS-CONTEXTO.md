@@ -1,6 +1,6 @@
-# 🤖 AGENTES-SKILLS-CONTEXTO.md - Agentes y Skills Antigravity
+# 🤖 AGENTES-SKILLS-CONTEXTO.md - Agentes y Skills Antigravity (Stack Autónomo)
 
-Matriz de capacidades, agentes y skills para potenciar el desarrollo con la plataforma.
+Matriz de capacidades, agentes y skills para potenciar el desarrollo de Destino Vivo de forma autónoma.
 
 ---
 
@@ -8,10 +8,10 @@ Matriz de capacidades, agentes y skills para potenciar el desarrollo con la plat
 
 | Agente | Función | Uso Principal |
 | :--- | :--- | :--- |
-| **Architect Agent** | Diseño de sistemas y esquemas | Definir modelos de Sheets, estructura de workflows y ADRs. |
-| **Workflow Dev Agent** | Construcción No-Code | Crear y exportar workflows de Antigravity en formato JSON. |
-| **Cloud Function Agent** | Integraciones Serverless | Escribir funciones Python / Node.js en Google Cloud. |
-| **QA / Testing Agent** | Auditoría y Validación | Verificar que las llamadas a Sheets y APIs cumplan con los esquemas. |
+| **Architect Agent** | Diseño de sistemas y esquemas | Definir tablas nativas de Antigravity, estructuras de workflows y ADRs. |
+| **Workflow Dev Agent** | Construcción No-Code | Crear y exportar workflows de Antigravity en formato JSON (pricing, onboarding). |
+| **Email & Alert Agent** | Integraciones de Notificación | Configurar plantillas y triggers de correo mediante Gmail API / SMTP. |
+| **QA / Testing Agent** | Auditoría y Validación | Verificar que la lógica de expresiones JS y almacenamiento nativo sea correcta. |
 
 ---
 
@@ -19,4 +19,3 @@ Matriz de capacidades, agentes y skills para potenciar el desarrollo con la plat
 
 - **`antigravity-guide`**: Consulta de especificaciones y capacidades avanzadas de Antigravity.
 - **`modern-web-guidance`**: Mejores prácticas para componentes UI no-code / web.
-- **`gcp-pipeline-orchestration`**: Diseño de flujos programados y triggers en entornos Cloud.
