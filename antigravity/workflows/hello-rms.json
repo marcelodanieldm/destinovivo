@@ -1,0 +1,17 @@
+{
+  "$schema": "https://antigravity.dev/schemas/workflow.json",
+  "id": "hello_rms",
+  "name": "Hello World RMS Initializer",
+  "description": "DAG simple de verificación inicial para Destino Vivo RMS",
+  "active": true,
+  "nodes": [
+    {
+      "id": "task-init-print",
+      "name": "Print RMS Initialized",
+      "type": "JavaScriptCode",
+      "config": {
+        "code": "console.log('RMS initialized successfully for Destino Vivo LatAm!'); return { status: 'INITIALIZED', timestamp: new Date().toISOString() };"
+      }
+    }
+  ]
+}

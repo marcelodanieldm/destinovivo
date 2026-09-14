@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # 1. Antigravity Orchestrator / Local Engine
+  antigravity-engine:
+    image: python:3.11-slim
+    container_name: destinovivo-antigravity-engine
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - ANTIGRAVITY_ENV=development
+      - PORT=8080
+      - SUPABASE_URL=http://supabase-db:5432
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./:/workspace
+    command: >
+      sh -c "pip install --no-cache-dir requests redis &&
+             node /workspace/scratch/preview-server.js"
+    depends_on:
+      - supabase-db
+      - redis
+
+  # 2. Local PostgreSQL (Simulating Supabase Database)
+  supabase-db:
+    image: postgres:15-alpine
+    container_name: destinovivo-supabase-db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=destinovivo_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # 3. Redis Cache Engine for Workflow Locks & Queues
+  redis:
+    image: redis:7-alpine
+    container_name: destinovivo-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
