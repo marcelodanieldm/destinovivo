@@ -1,19 +1,47 @@
 {
   "$schema": "https://antigravity.dev/schemas/page.json",
-  "id": "page-pricing-dashboard",
+  "id": "page-pricing-dashboard-advanced",
   "name": "Pricing Dashboard",
   "route": "/pricing",
-  "title": "Gestión de Tarifas - Destino Vivo RMS",
+  "title": "Gestión Avanzada de Tarifas - Destino Vivo RMS",
   "layout": "app-sidebar",
   "dataQueries": [
     {
-      "id": "query-pricing-history",
+      "id": "query-current-pricing",
       "endpoint": "Supabase REST API",
       "method": "GET",
       "path": "/price_history",
       "params": {
-        "select": "history_id,hotel_id,target_date,recommended_rate,applied_rate,occupancy_pct,rules_applied",
-        "order": "target_date.asc"
+        "select": "history_id,hotel_id,target_date,recommended_rate,applied_rate,occupancy_pct,rules_applied,decision_source",
+        "order": "target_date.desc",
+        "limit": "2"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    },
+    {
+      "id": "query-price-history-30d",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/price_history",
+      "params": {
+        "select": "history_id,target_date,recommended_rate,applied_rate,occupancy_pct,rules_applied,decision_source",
+        "order": "target_date.desc",
+        "limit": "30"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    },
+    {
+      "id": "query-pricing-rules-active",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/pricing_rules",
+      "params": {
+        "select": "rule_id,hotel_id,rule_type,threshold_min,threshold_max,adjustment_type,adjustment_value,is_active",
+        "is_active": "eq.true"
       },
       "headers": {
         "Authorization": "Bearer $session.sb-access-token"
@@ -22,27 +50,167 @@
   ],
   "components": [
     {
-      "id": "pricing-header",
+      "id": "pricing-header-main",
       "type": "HeaderBar",
       "props": {
-        "title": "Tarifas Dinámicas (Próximos 30 Días)",
-        "subtitle": "Tarifas calculadas automáticamente basadas en ocupación y reglas activas"
+        "title": "Pricing & Revenue Dashboard",
+        "subtitle": "Optimización inteligente de tarifas e inspección de reglas de negocio"
       }
     },
     {
-      "id": "pricing-data-table",
-      "type": "DataTable",
+      "id": "pricing-tabs-container",
+      "type": "Tabs",
       "props": {
-        "dataSource": "$queries.query-pricing-history.data",
-        "columns": [
-          { "key": "target_date", "label": "Fecha" },
-          { "key": "occupancy_pct", "label": "Ocupación %", "format": "percentage" },
-          { "key": "recommended_rate", "label": "Tarifa Rec.", "format": "currency" },
-          { "key": "applied_rate", "label": "Tarifa Aplicada", "format": "currency", "editable": true },
-          { "key": "rules_applied", "label": "Reglas Aplicadas" }
+        "tabs": [
+          { "id": "tab-current", "label": "Current Pricing", "icon": "today" },
+          { "id": "tab-history", "label": "Price History (30 días)", "icon": "show_chart" },
+          { "id": "tab-rules", "label": "Pricing Rules", "icon": "rule", "adminOnly": true }
+        ]
+      },
+      "tabContents": {
+        "tab-current": [
+          {
+            "id": "grid-current-stats",
+            "type": "Grid",
+            "props": { "columns": 4, "gap": "16px" },
+            "children": [
+              {
+                "id": "stat-base-price",
+                "type": "StatCard",
+                "props": {
+                  "title": "Precio Base",
+                  "value": "${{ $queries.query-current-pricing.data[0].recommended_rate || 120 }} USD",
+                  "icon": "attach_money"
+                }
+              },
+              {
+                "id": "stat-final-price",
+                "type": "StatCard",
+                "props": {
+                  "title": "Precio Final Optimizado",
+                  "value": "${{ $queries.query-current-pricing.data[0].applied_rate || 138 }} USD",
+                  "icon": "trending_up",
+                  "badgeColor": "success"
+                }
+              },
+              {
+                "id": "stat-occupancy-current",
+                "type": "StatCard",
+                "props": {
+                  "title": "Ocupación Actual",
+                  "value": "{{ $queries.query-current-pricing.data[0].occupancy_pct || 85 }}%",
+                  "icon": "percent",
+                  "trend": "vs ayer: +3.5%"
+                }
+              },
+              {
+                "id": "stat-decision-source",
+                "type": "StatCard",
+                "props": {
+                  "title": "Origen de Decisión",
+                  "value": "{{ $queries.query-current-pricing.data[0].decision_source || 'RULE_BASED' }}",
+                  "icon": "smart_toy",
+                  "badgeColor": "info"
+                }
+              }
+            ]
+          },
+          {
+            "id": "card-manual-override",
+            "type": "Card",
+            "props": {
+              "title": "Acciones Rápidas de Tarifa",
+              "visibleIf": "$session.user.role === 'ADMIN' || $session.user.role === 'HOTEL_MANAGER'"
+            },
+            "children": [
+              {
+                "id": "btn-manual-override",
+                "type": "Button",
+                "props": {
+                  "label": "Manual Override (Ajustar Tarifa)",
+                  "icon": "edit",
+                  "variant": "primary",
+                  "action": "open_modal",
+                  "targetModal": "modal-override-pricing"
+                }
+              }
+            ]
+          }
         ],
-        "actions": [
-          { "label": "Modificar Tarifa", "action": "open_modal", "targetModal": "modal-override-price" }
+        "tab-history": [
+          {
+            "id": "chart-price-vs-occupancy",
+            "type": "LineChart",
+            "props": {
+              "title": "Evolución de Tarifa vs Porcentaje de Ocupación",
+              "dataSource": "$queries.query-price-history-30d.data",
+              "xAxisKey": "target_date",
+              "lines": [
+                { "key": "applied_rate", "name": "Tarifa ($ USD)", "color": "#2563eb", "yAxisId": "left" },
+                { "key": "occupancy_pct", "name": "Ocupación (%)", "color": "#16a34a", "yAxisId": "right" }
+              ]
+            }
+          },
+          {
+            "id": "table-history-30d",
+            "type": "DataTable",
+            "props": {
+              "title": "Histórico Detallado (30 Días)",
+              "dataSource": "$queries.query-price-history-30d.data",
+              "columns": [
+                { "key": "target_date", "label": "Fecha" },
+                { "key": "occupancy_pct", "label": "Ocupación (%)", "format": "percentage" },
+                { "key": "recommended_rate", "label": "Tarifa Rec.", "format": "currency" },
+                { "key": "applied_rate", "label": "Tarifa Final", "format": "currency" },
+                { "key": "decision_source", "label": "Origen" }
+              ]
+            }
+          }
+        ],
+        "tab-rules": [
+          {
+            "id": "rules-header-bar",
+            "type": "FlexRow",
+            "props": { "justify": "space-between" },
+            "children": [
+              { "id": "txt-rules-title", "type": "Heading", "props": { "text": "Reglas de Precios Activas", "level": 3 } },
+              {
+                "id": "btn-add-rule",
+                "type": "Button",
+                "props": {
+                  "label": "Add Rule (Nueva Regla)",
+                  "icon": "add",
+                  "variant": "primary",
+                  "action": "open_modal",
+                  "targetModal": "modal-add-rule"
+                }
+              }
+            ]
+          },
+          {
+            "id": "table-pricing-rules",
+            "type": "DataTable",
+            "props": {
+              "dataSource": "$queries.query-pricing-rules-active.data",
+              "columns": [
+                { "key": "rule_id", "label": "ID Regla" },
+                { "key": "rule_type", "label": "Tipo de Regla" },
+                { "key": "threshold_min", "label": "Umbral Mínimo (%)" },
+                { "key": "adjustment_type", "label": "Tipo Ajuste" },
+                { "key": "adjustment_value", "label": "Valor Ajuste" },
+                { "key": "is_active", "label": "Estado", "format": "boolean" }
+              ],
+              "rowActions": [
+                { "label": "Editar", "action": "open_modal", "targetModal": "modal-edit-rule" },
+                {
+                  "label": "Eliminar",
+                  "action": "http_delete",
+                  "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/pricing_rules?rule_id=eq.$row.rule_id",
+                  "confirmMessage": "¿Seguro que deseas eliminar esta regla?"
+                }
+              ]
+            }
+          }
         ]
       }
     }
