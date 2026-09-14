@@ -1,0 +1,47 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-dashboard",
+  "name": "Dashboard",
+  "route": "/dashboard",
+  "title": "Dashboard Tarifas & Alertas - Destino Vivo",
+  "layout": "app-sidebar",
+  "components": [
+    {
+      "id": "sidebar-nav",
+      "type": "Sidebar",
+      "props": {
+        "items": [
+          { "label": "Visión General", "icon": "dashboard", "route": "/dashboard" },
+          { "label": "Hoteles & Onboarding", "icon": "hotel", "route": "/dashboard/hotels" },
+          { "label": "Reglas de Precios", "icon": "rule", "route": "/dashboard/rules" },
+          { "label": "Historial de Tarifas", "icon": "history", "route": "/dashboard/history" },
+          { "label": "Alertas Gmail", "icon": "mail", "route": "/dashboard/alerts" }
+        ]
+      }
+    },
+    {
+      "id": "metrics-grid",
+      "type": "Grid",
+      "props": { "columns": 4 },
+      "children": [
+        { "id": "metric-hotels", "type": "StatCard", "props": { "title": "Hoteles Activos", "value": "1", "icon": "hotel" } },
+        { "id": "metric-occupancy", "type": "StatCard", "props": { "title": "Ocupación Promedio", "value": "78%", "icon": "percent" } },
+        { "id": "metric-rate", "type": "StatCard", "props": { "title": "Tarifa Promedio", "value": "$125.00", "icon": "dollar" } },
+        { "id": "metric-alerts", "type": "StatCard", "props": { "title": "Alertas Pendientes", "value": "2", "icon": "warning" } }
+      ]
+    },
+    {
+      "id": "pricing-table", "type": "DataTable",
+      "props": {
+        "dataSource": "Price_History",
+        "title": "Últimas Tarifas Recomendadas",
+        "columns": [
+          { "key": "hotel_id", "label": "Hotel" },
+          { "key": "target_date", "label": "Fecha Tarifa" },
+          { "key": "recommended_rate", "label": "Tarifa Rec." },
+          { "key": "occupancy_pct", "label": "Ocupación %" }
+        ]
+      }
+    }
+  ]
+}

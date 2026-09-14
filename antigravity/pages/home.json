@@ -1,0 +1,23 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-home",
+  "name": "Home",
+  "route": "/",
+  "title": "Bienvenido - Destino Vivo RMS",
+  "layout": "landing",
+  "components": [
+    {
+      "id": "hero-section",
+      "type": "Hero",
+      "props": {
+        "title": "Optimiza las Tarifas de tu Hotel en LatAm",
+        "subtitle": "Revenue Management autónomo con alertas inteligentes por Gmail.",
+        "primaryButtonLabel": "Iniciar Sesión",
+        "primaryButtonAction": {
+          "type": "navigate",
+          "target": "/login"
+        }
+      }
+    }
+  ]
+}

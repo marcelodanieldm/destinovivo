@@ -1,0 +1,43 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-login",
+  "name": "Login",
+  "route": "/login",
+  "title": "Iniciar Sesión - Destino Vivo",
+  "layout": "auth-centered",
+  "components": [
+    {
+      "id": "card-login",
+      "type": "Card",
+      "props": {
+        "title": "Destino Vivo RMS",
+        "subtitle": "Gestión inteligente de ingresos para hoteles en LatAm",
+        "align": "center",
+        "maxWidth": "420px"
+      },
+      "children": [
+        {
+          "id": "btn-google-oauth",
+          "type": "Button",
+          "props": {
+            "label": "Continuar con Google",
+            "icon": "google",
+            "variant": "outline",
+            "fullWidth": true,
+            "action": "oauth_login",
+            "provider": "google",
+            "scopes": ["email", "profile"],
+            "onSuccess": {
+              "type": "navigate",
+              "target": "/dashboard"
+            },
+            "onFailure": {
+              "type": "show_toast",
+              "message": "Error al autenticar con Google OAuth"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
