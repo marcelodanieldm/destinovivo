@@ -1,0 +1,225 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-backoffice-hotel-details",
+  "name": "Backoffice Hotel Details",
+  "route": "/backoffice/hotel/:hotel_id",
+  "title": "Inspección de Hotel - Destino Vivo Backoffice",
+  "layout": "app-sidebar",
+  "dataQueries": [
+    {
+      "id": "query-hotel-detail",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/hotels",
+      "params": {
+        "hotel_id": "eq.$route.params.hotel_id",
+        "select": "*"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.dv-admin-token"
+      }
+    },
+    {
+      "id": "query-hotel-pricing-30d",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/price_history",
+      "params": {
+        "hotel_id": "eq.$route.params.hotel_id",
+        "select": "history_id,target_date,recommended_rate,applied_rate,occupancy_pct,decision_source,calculated_at",
+        "order": "target_date.desc",
+        "limit": "30"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.dv-admin-token"
+      }
+    },
+    {
+      "id": "query-hotel-alerts-30d",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/alerts_log",
+      "params": {
+        "select": "log_id,alert_id,recipient_email,delivery_status,dispatched_at",
+        "order": "dispatched_at.desc",
+        "limit": "50"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.dv-admin-token"
+      }
+    },
+    {
+      "id": "query-hotel-staff",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/users",
+      "params": {
+        "select": "user_id,email,name,role,status,created_at"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.dv-admin-token"
+      }
+    },
+    {
+      "id": "query-hotel-rules",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/pricing_rules",
+      "params": {
+        "hotel_id": "eq.$route.params.hotel_id",
+        "select": "*"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.dv-admin-token"
+      }
+    }
+  ],
+  "components": [
+    {
+      "id": "inspector-header",
+      "type": "HeaderBar",
+      "props": {
+        "title": "Inspeccionando: {{ $queries.query-hotel-detail.data[0].name }} (ID: {{ $route.params.hotel_id }})",
+        "subtitle": "Vista administrativa completa para el equipo interno de Destino Vivo",
+        "theme": "dark"
+      }
+    },
+    {
+      "id": "inspector-tabs-container",
+      "type": "Tabs",
+      "props": {
+        "tabs": [
+          { "id": "tab-overview", "label": "Overview", "icon": "info" },
+          { "id": "tab-pricing-decisions", "label": "Pricing Decisions (30d)", "icon": "trending_up" },
+          { "id": "tab-alerts-fired", "label": "Alerts Fired", "icon": "notifications" },
+          { "id": "tab-users-staff", "label": "Users / Staff", "icon": "group" },
+          { "id": "tab-rules-config", "label": "Pricing Rules", "icon": "gavel" }
+        ]
+      },
+      "tabContents": {
+        "tab-overview": [
+          {
+            "id": "sec-hotel-overview",
+            "type": "CardSection",
+            "props": { "title": "Información General del Hotel" },
+            "children": [
+              {
+                "id": "grid-overview-fields",
+                "type": "Grid",
+                "props": { "columns": 4, "gap": "16px" },
+                "children": [
+                  { "id": "f-name", "type": "ReadOnlyField", "props": { "label": "Nombre Comercial", "value": "{{ $queries.query-hotel-detail.data[0].name }}" } },
+                  { "id": "f-city", "type": "ReadOnlyField", "props": { "label": "Ubicación", "value": "{{ $queries.query-hotel-detail.data[0].city }}, {{ $queries.query-hotel-detail.data[0].country }}" } },
+                  { "id": "f-rooms", "type": "ReadOnlyField", "props": { "label": "Inventario Habitaciones", "value": "{{ $queries.query-hotel-detail.data[0].total_rooms }}" } },
+                  { "id": "f-status", "type": "ReadOnlyField", "props": { "label": "Suscripción / Estado", "value": "{{ $queries.query-hotel-detail.data[0].subscription_tier }} ({{ $queries.query-hotel-detail.data[0].status }})", "badge": "ACTIVE" } }
+                ]
+              }
+            ]
+          }
+        ],
+        "tab-pricing-decisions": [
+          {
+            "id": "chart-scatter-price-vs-occ",
+            "type": "ScatterPlotChart",
+            "props": {
+              "title": "Dispersión de Tarifa ($ USD) vs Ocupación (%)",
+              "dataSource": "$queries.query-hotel-pricing-30d.data",
+              "xAxisKey": "occupancy_pct",
+              "xAxisLabel": "Ocupación %",
+              "yAxisKey": "applied_rate",
+              "yAxisLabel": "Tarifa $ USD"
+            }
+          },
+          {
+            "id": "table-pricing-decisions-30d",
+            "type": "DataTable",
+            "props": {
+              "title": "Decisiones de Tarifas de los Últimos 30 Días",
+              "dataSource": "$queries.query-hotel-pricing-30d.data",
+              "filterable": true,
+              "sortable": true,
+              "columns": [
+                { "key": "target_date", "label": "Fecha Tarifa" },
+                { "key": "occupancy_pct", "label": "Ocupación %", "format": "percentage" },
+                { "key": "recommended_rate", "label": "Tarifa Rec.", "format": "currency" },
+                { "key": "applied_rate", "label": "Tarifa Aplicada", "format": "currency" },
+                { "key": "decision_source", "label": "Origen" }
+              ]
+            }
+          }
+        ],
+        "tab-alerts-fired": [
+          {
+            "id": "table-alerts-fired-30d",
+            "type": "DataTable",
+            "props": {
+              "title": "Historial de Alertas Disparadas (Últimos 30 Días)",
+              "dataSource": "$queries.query-hotel-alerts-30d.data",
+              "filterable": true,
+              "columns": [
+                { "key": "dispatched_at", "label": "Fecha / Hora" },
+                { "key": "recipient_email", "label": "Destinatario" },
+                { "key": "delivery_status", "label": "Estado Entrega", "badgeColors": { "SENT": "red", "ACKNOWLEDGED": "blue" } }
+              ]
+            }
+          }
+        ],
+        "tab-users-staff": [
+          {
+            "id": "table-hotel-staff",
+            "type": "DataTable",
+            "props": {
+              "title": "Usuarios y Staff Asociados al Hotel",
+              "dataSource": "$queries.query-hotel-staff.data",
+              "columns": [
+                { "key": "email", "label": "Correo Electrónico" },
+                { "key": "name", "label": "Nombre" },
+                { "key": "role", "label": "Rol" },
+                { "key": "status", "label": "Estado Cuenta", "badgeColors": { "ACTIVE": "green", "SUSPENDED": "red" } }
+              ],
+              "rowActions": [
+                {
+                  "label": "Suspender Usuario",
+                  "variant": "danger",
+                  "confirmMessage": "¿Estás seguro de que deseas suspender el acceso de este usuario?",
+                  "action": "http_patch",
+                  "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/users?user_id=eq.$row.user_id",
+                  "body": { "status": "SUSPENDED" },
+                  "onSuccess": { "type": "refresh_data" }
+                }
+              ]
+            }
+          }
+        ],
+        "tab-rules-config": [
+          {
+            "id": "table-hotel-rules",
+            "type": "DataTable",
+            "props": {
+              "title": "Reglas de Precios Configuradas para el Hotel",
+              "dataSource": "$queries.query-hotel-rules.data",
+              "columns": [
+                { "key": "rule_id", "label": "ID Regla" },
+                { "key": "rule_type", "label": "Tipo de Regla" },
+                { "key": "threshold_min", "label": "Umbral Mínimo" },
+                { "key": "adjustment_value", "label": "Ajuste" },
+                { "key": "is_active", "label": "Activa", "format": "boolean" }
+              ],
+              "rowActions": [
+                { "label": "Editar", "action": "open_modal", "targetModal": "modal-edit-rule-admin" },
+                {
+                  "label": "Eliminar",
+                  "variant": "danger",
+                  "confirmMessage": "¿Eliminar esta regla de forma permanente?",
+                  "action": "http_delete",
+                  "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/pricing_rules?rule_id=eq.$row.rule_id",
+                  "onSuccess": { "type": "refresh_data" }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
