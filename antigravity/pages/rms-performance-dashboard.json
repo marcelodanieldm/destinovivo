@@ -1,0 +1,117 @@
+{
+  "id": "rms-performance-dashboard",
+  "title": "RMS Performance & KPI Dashboard",
+  "route": "/rms-performance",
+  "layout": "dashboard",
+  "sections": [
+    {
+      "id": "kpi-summary-cards",
+      "type": "grid",
+      "columns": 4,
+      "components": [
+        {
+          "type": "StatCard",
+          "props": {
+            "title": "Total Revenue (30d)",
+            "value": "R$ 337,500.00",
+            "trend": "+12.4%",
+            "trendDirection": "up",
+            "icon": "dollar-sign"
+          }
+        },
+        {
+          "type": "StatCard",
+          "props": {
+            "title": "RevPAR",
+            "value": "R$ 112.50",
+            "trend": "+8.2%",
+            "trendDirection": "up",
+            "icon": "trending-up"
+          }
+        },
+        {
+          "type": "StatCard",
+          "props": {
+            "title": "Forecast MAPE",
+            "value": "9.98%",
+            "trend": "-1.5%",
+            "trendDirection": "up",
+            "icon": "target"
+          }
+        },
+        {
+          "type": "StatCard",
+          "props": {
+            "title": "API Sync Success",
+            "value": "99.80%",
+            "trend": "SLA Compliant",
+            "trendDirection": "neutral",
+            "icon": "check-circle"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dashboard-tabs",
+      "type": "tabs",
+      "tabs": [
+        {
+          "id": "tab-executive",
+          "label": "Executive Overview",
+          "components": [
+            {
+              "type": "LineChart",
+              "props": {
+                "title": "Revenue & Occupancy Trend (30 Days)",
+                "data": "datasource.supabase.monthly_revenue_trend",
+                "xAxis": "date",
+                "series": [
+                  { "key": "daily_revenue", "name": "Daily Revenue (R$)", "color": "#10B981" },
+                  { "key": "occupancy_pct", "name": "Occupancy %", "color": "#6366F1" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "tab-rms-performance",
+          "label": "RMS Model & Engine Performance",
+          "components": [
+            {
+              "type": "LineChart",
+              "props": {
+                "title": "Forecast MAPE vs Target (<12%)",
+                "data": "datasource.supabase.mape_trend",
+                "xAxis": "date",
+                "series": [
+                  { "key": "mape", "name": "Actual MAPE %", "color": "#F59E0B" },
+                  { "key": "target_mape", "name": "Target (12%)", "color": "#EF4444", "dash": "5 5" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "tab-operational",
+          "label": "Operational Decisions & Audit Logs",
+          "components": [
+            {
+              "type": "DataTable",
+              "props": {
+                "title": "Recent Pricing Decisions & Overrides",
+                "columns": [
+                  { "key": "date", "label": "Date" },
+                  { "key": "room_type", "label": "Room Type" },
+                  { "key": "rule_price", "label": "Rule Price" },
+                  { "key": "ml_price", "label": "ML Price" },
+                  { "key": "final_price", "label": "Final Rate" },
+                  { "key": "status", "label": "Status" }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
