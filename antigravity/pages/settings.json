@@ -1,0 +1,62 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-settings",
+  "name": "Settings",
+  "route": "/settings",
+  "title": "Configuración del Hotel & Reglas",
+  "layout": "app-sidebar",
+  "dataQueries": [
+    {
+      "id": "query-hotel-settings",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/hotels",
+      "params": {
+        "select": "hotel_id,name,country,city,currency,total_rooms,base_rate,min_rate,max_rate",
+        "limit": "1"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    }
+  ],
+  "components": [
+    {
+      "id": "settings-header",
+      "type": "HeaderBar",
+      "props": {
+        "title": "Configuración del Hotel",
+        "subtitle": "Ajusta tarifas base, límites y configuración de notificaciones"
+      }
+    },
+    {
+      "id": "form-hotel-settings",
+      "type": "Form",
+      "props": {
+        "initialValues": "$queries.query-hotel-settings.data[0]",
+        "onSubmit": {
+          "action": "http_patch",
+          "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/hotels?hotel_id=eq.$form.hotel_id",
+          "body": {
+            "name": "$form.name",
+            "base_rate": "$form.base_rate",
+            "min_rate": "$form.min_rate",
+            "max_rate": "$form.max_rate"
+          },
+          "onSuccess": {
+            "type": "show_toast",
+            "severity": "success",
+            "message": "Configuración actualizada correctamente"
+          }
+        }
+      },
+      "children": [
+        { "id": "set-name", "type": "TextInput", "props": { "name": "name", "label": "Nombre del Hotel", "required": true } },
+        { "id": "set-base-rate", "type": "NumberInput", "props": { "name": "base_rate", "label": "Tarifa Base ($ USD)", "required": true } },
+        { "id": "set-min-rate", "type": "NumberInput", "props": { "name": "min_rate", "label": "Tarifa Mínima Permitida ($ USD)", "required": true } },
+        { "id": "set-max-rate", "type": "NumberInput", "props": { "name": "max_rate", "label": "Tarifa Máxima Permitida ($ USD)", "required": true } },
+        { "id": "btn-save-settings", "type": "Button", "props": { "label": "Guardar Cambios", "type": "submit", "variant": "primary" } }
+      ]
+    }
+  ]
+}

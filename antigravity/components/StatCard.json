@@ -1,0 +1,13 @@
+{
+  "$schema": "https://antigravity.dev/schemas/component.json",
+  "id": "comp-statcard",
+  "name": "StatCard",
+  "type": "WidgetCard",
+  "props": {
+    "title": "String",
+    "value": "String|Number",
+    "icon": "String",
+    "trend": "String",
+    "trendDirection": "up|down|neutral"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://antigravity.dev/schemas/component.json",
+  "id": "comp-navbar",
+  "name": "TopNavbar",
+  "type": "Navbar",
+  "props": {
+    "brandLogo": "/assets/destino-vivo-logo.svg",
+    "brandTitle": "Destino Vivo RMS",
+    "items": [
+      { "label": "Inicio", "route": "/dashboard" },
+      { "label": "Tarifas", "route": "/pricing" },
+      { "label": "Alertas", "route": "/alerts" },
+      { "label": "Configuración", "route": "/settings" }
+    ],
+    "userMenu": {
+      "avatar": "$session.user.email[0]",
+      "actions": [
+        { "label": "Mi Perfil", "route": "/settings" },
+        { "label": "Cerrar Sesión", "action": "clear_session", "redirect": "/login" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-pricing-dashboard",
+  "name": "Pricing Dashboard",
+  "route": "/pricing",
+  "title": "Gestión de Tarifas - Destino Vivo RMS",
+  "layout": "app-sidebar",
+  "dataQueries": [
+    {
+      "id": "query-pricing-history",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/price_history",
+      "params": {
+        "select": "history_id,hotel_id,target_date,recommended_rate,applied_rate,occupancy_pct,rules_applied",
+        "order": "target_date.asc"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    }
+  ],
+  "components": [
+    {
+      "id": "pricing-header",
+      "type": "HeaderBar",
+      "props": {
+        "title": "Tarifas Dinámicas (Próximos 30 Días)",
+        "subtitle": "Tarifas calculadas automáticamente basadas en ocupación y reglas activas"
+      }
+    },
+    {
+      "id": "pricing-data-table",
+      "type": "DataTable",
+      "props": {
+        "dataSource": "$queries.query-pricing-history.data",
+        "columns": [
+          { "key": "target_date", "label": "Fecha" },
+          { "key": "occupancy_pct", "label": "Ocupación %", "format": "percentage" },
+          { "key": "recommended_rate", "label": "Tarifa Rec.", "format": "currency" },
+          { "key": "applied_rate", "label": "Tarifa Aplicada", "format": "currency", "editable": true },
+          { "key": "rules_applied", "label": "Reglas Aplicadas" }
+        ],
+        "actions": [
+          { "label": "Modificar Tarifa", "action": "open_modal", "targetModal": "modal-override-price" }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-alerts-dashboard",
+  "name": "Alerts Dashboard",
+  "route": "/alerts",
+  "title": "Centro de Alertas & Gmail - Destino Vivo RMS",
+  "layout": "app-sidebar",
+  "dataQueries": [
+    {
+      "id": "query-all-alerts",
+      "endpoint": "Supabase REST API",
+      "method": "GET",
+      "path": "/alerts_config",
+      "params": {
+        "select": "alert_id,hotel_id,alert_type,severity,message,sent_via_gmail,is_resolved,created_at",
+        "order": "created_at.desc"
+      },
+      "headers": {
+        "Authorization": "Bearer $session.sb-access-token"
+      }
+    }
+  ],
+  "components": [
+    {
+      "id": "alerts-header",
+      "type": "HeaderBar",
+      "props": {
+        "title": "Centro de Alertas y Notificaciones Gmail",
+        "subtitle": "Historial de anomalías de ocupación y estado de entrega de correos"
+      }
+    },
+    {
+      "id": "alerts-table",
+      "type": "DataTable",
+      "props": {
+        "dataSource": "$queries.query-all-alerts.data",
+        "columns": [
+          { "key": "created_at", "label": "Fecha / Hora" },
+          { "key": "severity", "label": "Severidad", "badgeColors": { "CRITICAL": "red", "WARNING": "yellow", "INFO": "blue" } },
+          { "key": "message", "label": "Detalle de Alerta" },
+          { "key": "sent_via_gmail", "label": "Gmail Enviado", "format": "boolean" },
+          { "key": "is_resolved", "label": "Estado", "format": "boolean" }
+        ],
+        "rowActions": [
+          {
+            "label": "Marcar Resuelta",
+            "action": "http_patch",
+            "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/alerts_config?alert_id=eq.$row.alert_id",
+            "body": { "is_resolved": true },
+            "onSuccess": { "type": "refresh_data" }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://antigravity.dev/schemas/component.json",
+  "id": "comp-sidebar",
+  "name": "AppSidebar",
+  "type": "Sidebar",
+  "props": {
+    "collapsible": true,
+    "navigation": [
+      { "id": "nav-home", "label": "Visión General", "icon": "dashboard", "route": "/dashboard" },
+      { "id": "nav-pricing", "label": "Gestión de Tarifas", "icon": "trending_up", "route": "/pricing" },
+      { "id": "nav-alerts", "label": "Alertas Gmail", "icon": "notifications", "route": "/alerts", "badge": "3" },
+      { "id": "nav-settings", "label": "Configuración Hotel", "icon": "settings", "route": "/settings" }
+    ]
+  }
+}

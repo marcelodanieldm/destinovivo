@@ -1,0 +1,63 @@
+{
+  "$schema": "https://antigravity.dev/schemas/page.json",
+  "id": "page-register",
+  "name": "Register",
+  "route": "/register",
+  "title": "Crear Cuenta - Destino Vivo RMS",
+  "layout": "auth-centered",
+  "components": [
+    {
+      "id": "card-register",
+      "type": "Card",
+      "props": {
+        "title": "Crear Cuenta en Destino Vivo",
+        "subtitle": "Registra tu hotel boutique para comenzar a optimizar tarifas",
+        "maxWidth": "440px",
+        "align": "center"
+      },
+      "children": [
+        {
+          "id": "form-register",
+          "type": "Form",
+          "props": {
+            "onSubmit": {
+              "action": "http_post",
+              "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/auth/v1/signup",
+              "headers": {
+                "apikey": "YOUR_SUPABASE_ANON_KEY",
+                "Content-Type": "application/json"
+              },
+              "body": {
+                "email": "$form.email",
+                "password": "$form.password",
+                "data": {
+                  "full_name": "$form.full_name",
+                  "hotel_name": "$form.hotel_name"
+                }
+              },
+              "onSuccess": [
+                {
+                  "type": "show_toast",
+                  "severity": "success",
+                  "message": "Registro completado. Por favor verifica tu correo electrónico."
+                },
+                {
+                  "type": "navigate",
+                  "target": "/login"
+                }
+              ]
+            }
+          },
+          "children": [
+            { "id": "reg-name", "type": "TextInput", "props": { "name": "full_name", "label": "Nombre Completo", "required": true } },
+            { "id": "reg-hotel", "type": "TextInput", "props": { "name": "hotel_name", "label": "Nombre de tu Hotel", "required": true } },
+            { "id": "reg-email", "type": "TextInput", "props": { "name": "email", "label": "Correo Electrónico", "inputType": "email", "required": true } },
+            { "id": "reg-password", "type": "PasswordInput", "props": { "name": "password", "label": "Contraseña (min 8 chars)", "required": true, "validation": { "minLength": 8 } } },
+            { "id": "btn-submit-reg", "type": "Button", "props": { "label": "Registrarse", "type": "submit", "variant": "primary", "fullWidth": true } },
+            { "id": "link-login", "type": "Link", "props": { "text": "¿Ya tienes cuenta? Iniciar Sesión", "target": "/login", "align": "center" } }
+          ]
+        }
+      ]
+    }
+  ]
+}
