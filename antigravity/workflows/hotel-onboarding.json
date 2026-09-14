@@ -1,52 +1,180 @@
 {
   "$schema": "https://antigravity.dev/schemas/workflow.json",
-  "id": "workflow-hotel-onboarding",
-  "name": "Hotel Onboarding Workflow",
-  "description": "Alta de un nuevo hotel en el Data Store nativo con reglas por defecto y notificación por Gmail",
+  "id": "workflow-hotel-onboarding-production",
+  "name": "New Hotel Onboarding Workflow",
+  "description": "Orquestación de onboarding para nuevos hoteles: Creación de Hotel, Usuario Admin, 3 Reglas por Defecto, 2 Alertas de Sistema y Email de Bienvenida por SendGrid",
   "active": true,
   "nodes": [
     {
-      "id": "trigger-form",
-      "name": "Onboarding Form Submission",
+      "id": "trigger-onboarding-form",
+      "name": "Signup Form Submission",
       "type": "FormSubmissionTrigger",
       "config": {
-        "formId": "form-hotel-onboarding"
+        "formId": "form-register"
       }
     },
     {
-      "id": "process-onboarding",
-      "name": "Process Onboarding Logic",
-      "type": "JavaScriptCode",
+      "id": "step-1-create-hotel",
+      "name": "1. POST /hotels (Create Hotel)",
+      "type": "HttpRequest",
       "config": {
-        "code": "const input = $steps['trigger-form'].data;\nconst hotelId = 'HOT-' + Math.floor(1000 + Math.random() * 9000);\n\nconst hotelRecord = {\n  hotel_id: hotelId,\n  name: input.name,\n  country: input.country || 'Argentina',\n  city: input.city || 'Buenos Aires',\n  currency: input.currency || 'USD',\n  total_rooms: parseInt(input.total_rooms) || 30,\n  base_rate: parseFloat(input.base_rate) || 100.00,\n  min_rate: parseFloat(input.min_rate) || 70.00,\n  max_rate: parseFloat(input.max_rate) || 300.00,\n  created_at: new Date().toISOString()\n};\n\nconst defaultRules = [\n  {\n    rule_id: 'RUL-OCC-' + hotelId,\n    hotel_id: hotelId,\n    rule_type: 'OCCUPANCY_SURGE',\n    threshold_min: 80.0,\n    threshold_max: 100.0,\n    adjustment_type: 'PERCENTAGE',\n    adjustment_value: 15.0,\n    is_active: true\n  }\n];\n\nconst emailNotification = {\n  to: input.manager_email,\n  subject: `[Destino Vivo] Bienvenido a Destino Vivo RMS - ${input.name}`,\n  body: `Hola ${input.manager_name},\\n\\nTu hotel '${input.name}' ha sido registrado exitosamente en Destino Vivo.\\n\\nConfiguración Inicial:\\n- Tarifa Base: $${hotelRecord.base_rate} ${hotelRecord.currency}\\n- Regla Ocupación: +15% cuando la ocupación supere el 80%\\n\\nPuedes acceder al dashboard en cualquier momento para ajustar tus reglas.\\n\\nSaludos,\\nEquipo Destino Vivo`\n};\n\nreturn { hotelRecord, defaultRules, emailNotification };"
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/hotels",
+        "headers": {
+          "apikey": "YOUR_SUPABASE_ANON_KEY",
+          "Authorization": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY",
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        "body": {
+          "name": "$form.hotel_name",
+          "city": "$form.city",
+          "country": "$form.country",
+          "total_rooms": "$form.rooms_total",
+          "base_rate": 100.00,
+          "min_rate": 70.00,
+          "max_rate": 300.00,
+          "subscription_tier": "free"
+        }
       }
     },
     {
-      "id": "save-hotel",
-      "name": "Save Hotel to DataStore",
-      "type": "DataStoreInsert",
+      "id": "step-2-create-user",
+      "name": "2. POST /users (Create Admin User)",
+      "type": "HttpRequest",
       "config": {
-        "table": "Hotels",
-        "record": "$steps['process-onboarding'].output.hotelRecord"
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/users",
+        "headers": {
+          "apikey": "YOUR_SUPABASE_ANON_KEY",
+          "Authorization": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY",
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        "body": {
+          "email": "$form.email",
+          "name": "$form.full_name",
+          "role": "hotel_admin",
+          "hotel_ids": ["{{ $steps['step-1-create-hotel'].response.data[0].hotel_id }}"],
+          "status": "ACTIVE"
+        }
       }
     },
     {
-      "id": "save-default-rules",
-      "name": "Save Default Rules to DataStore",
-      "type": "DataStoreInsertBulk",
+      "id": "step-3-create-rules",
+      "name": "3. POST /pricing_rules (Create 3 Default Rules)",
+      "type": "HttpRequest",
       "config": {
-        "table": "Pricing_Rules",
-        "records": "$steps['process-onboarding'].output.defaultRules"
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/pricing_rules",
+        "headers": {
+          "apikey": "YOUR_SUPABASE_ANON_KEY",
+          "Authorization": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY",
+          "Content-Type": "application/json"
+        },
+        "body": [
+          {
+            "hotel_id": "{{ $steps['step-1-create-hotel'].response.data[0].hotel_id }}",
+            "rule_type": "BASE_RATE_RULE",
+            "threshold_min": 0,
+            "threshold_max": 100,
+            "adjustment_type": "FIXED_AMOUNT",
+            "adjustment_value": 0,
+            "is_active": true
+          },
+          {
+            "hotel_id": "{{ $steps['step-1-create-hotel'].response.data[0].hotel_id }}",
+            "rule_type": "OCCUPANCY_SURGE",
+            "threshold_min": 80.00,
+            "threshold_max": 100.00,
+            "adjustment_type": "PERCENTAGE",
+            "adjustment_value": 30.00,
+            "is_active": true
+          },
+          {
+            "hotel_id": "{{ $steps['step-1-create-hotel'].response.data[0].hotel_id }}",
+            "rule_type": "LOW_OCCUPANCY_DISCOUNT",
+            "threshold_min": 0,
+            "threshold_max": 30.00,
+            "adjustment_type": "PERCENTAGE",
+            "adjustment_value": -20.00,
+            "is_active": true
+          }
+        ]
       }
     },
     {
-      "id": "send-welcome-email",
-      "name": "Send Welcome Email via Gmail",
-      "type": "GmailSend",
+      "id": "step-4-create-alerts",
+      "name": "4. POST /alerts_config (Create 2 Default Alerts)",
+      "type": "HttpRequest",
       "config": {
-        "to": "$steps['process-onboarding'].output.emailNotification.to",
-        "subject": "$steps['process-onboarding'].output.emailNotification.subject",
-        "body": "$steps['process-onboarding'].output.emailNotification.body"
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT_ID.supabase.co/rest/v1/alerts_config",
+        "headers": {
+          "apikey": "YOUR_SUPABASE_ANON_KEY",
+          "Authorization": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY",
+          "Content-Type": "application/json"
+        },
+        "body": [
+          {
+            "hotel_id": "{{ $steps['step-1-create-hotel'].response.data[0].hotel_id }}",
+            "alert_type": "LOW_OCCUPANCY",
+            "severity": "WARNING",
+            "message": "Ocupación cayó por debajo del 30%",
+            "sent_via_gmail": true,
+            "is_resolved": false
+          },
+          {
+            "hotel_id": "{{ $steps['step-1-create-hotel'].response.data[0].hotel_id }}",
+            "alert_type": "HIGH_VARIANCE",
+            "severity": "CRITICAL",
+            "message": "Variación de precio superó el 20%",
+            "sent_via_gmail": true,
+            "is_resolved": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "step-5-send-welcome-email",
+      "name": "5. POST SendGrid (Send Welcome Email)",
+      "type": "HttpRequest",
+      "config": {
+        "ignoreError": true,
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "headers": {
+          "Authorization": "Bearer YOUR_SENDGRID_API_KEY",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "personalizations": [
+            {
+              "to": [{ "email": "$form.email" }],
+              "subject": "¡Bienvenido a Destino Vivo RMS!"
+            }
+          ],
+          "from": { "email": "soporte@destinovivo.com", "name": "Equipo Destino Vivo" },
+          "content": [
+            {
+              "type": "text/plain",
+              "value": "Hola $form.full_name,\n\n¡Tu cuenta para el hotel '$form.hotel_name' ha sido creada exitosamente!\n\nConfiguración inicial generada:\n- Tarifa Base: $100.00 USD\n- 3 Reglas de precios dinámicos activadas\n- 2 Alertas automáticas por correo configuradas\n\nInicia sesión aquí: https://app.destinovivo.com/login\n\n¡Gracias por elegir Destino Vivo RMS!"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "step-6-return-success",
+      "name": "6. Return Success Response",
+      "type": "ResponseHandler",
+      "config": {
+        "status": 200,
+        "payload": {
+          "status": "success",
+          "hotel_id": "{{ $steps['step-1-create-hotel'].response.data[0].hotel_id }}",
+          "message": "Hotel y cuenta creados exitosamente"
+        }
       }
     }
   ]
